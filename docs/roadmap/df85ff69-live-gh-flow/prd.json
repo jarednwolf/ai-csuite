@@ -1,0 +1,31 @@
+{
+  "title": "GH-E2E-ff8961: Live GH Flow",
+  "problem": "Users struggle to complete this task quickly.",
+  "user_stories": [
+    {
+      "as_a": "user",
+      "i_want": "to complete the task faster",
+      "so_that": "I save time"
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "given": "a logged-in user",
+      "when": "they perform the task",
+      "then": "it completes within 3 steps"
+    }
+  ],
+  "metrics": [
+    {
+      "name": "task_time_reduction",
+      "target": ">=15%"
+    }
+  ],
+  "risks": [
+    {
+      "risk": "scope creep",
+      "mitigation": "tight AC and feature flag"
+    }
+  ]
+}
