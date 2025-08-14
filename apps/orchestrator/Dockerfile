@@ -6,10 +6,10 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY requirements.txt /app/requirements.txt
+COPY apps/orchestrator/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY . /app
+COPY apps/orchestrator /app
 ENV PYTHONPATH=/app
 
 EXPOSE 8000

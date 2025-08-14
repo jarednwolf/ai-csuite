@@ -1,29 +1,71 @@
-
-version: "3.9"
 services:
   postgres:
     image: pgvector/pgvector:pg15
     environment:
-      POSTGRES_DB: csuite
       POSTGRES_USER: csuite
       POSTGRES_PASSWORD: csuite
-    ports: ["5432:5432"]
+      POSTGRES_DB: csuite
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./db/schema.sql:/docker-entrypoint-initdb.d/00-schema.sql:ro
-
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
-
+    ports:
+      - "6379:6379"
   orchestrator:
-    build: ./apps/orchestrator
-    env_file: .env
+    build:
+      context: .
+      dockerfile: apps/orchestrator/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://csuite:csuite@postgres:5432/csuite
+      REDIS_URL: redis://redis:6379/0
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_API_BASE: https://api.github.com
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+      AUTO_ENSURE_DISCOVERY: ${AUTO_ENSURE_DISCOVERY:-1}
+      GITHUB_PR_ENABLED: ${GITHUB_PR_ENABLED:-1}
+      GITHUB_WRITE_ENABLED: ${GITHUB_WRITE_ENABLED:-1}
+      EMBED_DIM: ${EMBED_DIM:-384}
+      TEMPORAL_ENABLED: ${TEMPORAL_ENABLED:-0}
+      TEMPORAL_HOSTPORT: ${TEMPORAL_HOSTPORT:-temporal:7233}
     depends_on:
       - postgres
       - redis
-    ports: ["8000:8000"]
-    command: uvicorn orchestrator.app:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+
+  # --- Optional Temporal cluster & UI (enable with: docker compose --profile temporal up) ---
+  temporal:
+    image: temporalio/auto-setup:1.23
+    profiles: ["temporal"]
+    environment:
+      - DB=sqlite
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:2.21.1
+    profiles: ["temporal"]
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    ports:
+      - "8233:8233"
+    depends_on:
+      - temporal
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    profiles: ["temporal"]
+    environment:
+      - TEMPORAL_HOSTPORT=temporal:7233
+      - ORCHESTRATOR_BASE=http://orchestrator:8000
+    depends_on:
+      - temporal
+      - orchestrator
 
 volumes:
   pgdata:

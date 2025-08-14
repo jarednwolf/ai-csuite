@@ -1,0 +1,44 @@
+name: Live E2E (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  live-e2e:
+    runs-on: ubuntu-latest
+    env:
+      AUTO_ENSURE_DISCOVERY: "1"
+      GITHUB_PR_ENABLED: "1"
+      GITHUB_WRITE_ENABLED: "1"
+      # Use PAT if provided; fallback to Actions token
+      GITHUB_TOKEN: ${{ secrets.CSUITE_PAT || github.token }}
+      E2E_REPO_OWNER: ${{ github.repository_owner }}
+      E2E_REPO_NAME: ${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dev deps
+        run: |
+          python -m pip install -U pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Build and run services
+        run: docker compose up -d --build
+
+      - name: Wait for health
+        run: ./scripts/ci_wait_for_health.sh
+
+      - name: Run live tests (PR -> statuses -> comment -> approve -> merge)
+        run: ./scripts/test_live.sh
+
+
