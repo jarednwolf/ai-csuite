@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.env
+.env.*
+dist/
+build/
+.eggs/
+*.egg-info/
+
+# OS/IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Node
+node_modules/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Docker
+**/.dockerignore
+**/Dockerfile.*

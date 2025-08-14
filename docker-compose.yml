@@ -1,0 +1,30 @@
+
+version: "3.9"
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_DB: csuite
+      POSTGRES_USER: csuite
+      POSTGRES_PASSWORD: csuite
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/00-schema.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  orchestrator:
+    build: ./apps/orchestrator
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    ports: ["8000:8000"]
+    command: uvicorn orchestrator.app:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  pgdata:
+
