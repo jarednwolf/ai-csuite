@@ -28,10 +28,20 @@ from .integrations.github import approve_pr_for_run, refresh_dor_status_for_run,
 
 app = FastAPI(title="AI C-suite Orchestrator (Phase 8)")
 
-# --- Startup: ensure tables exist ---
+# --- Startup: ensure tables exist (tolerant if DB not ready yet) ---
 @app.on_event("startup")
 def on_startup():
-    Base.metadata.create_all(bind=engine)
+    # CI may start app before Postgres is ready. Try briefly, then defer to lazy init in get_db().
+    for _ in range(30):
+        try:
+            Base.metadata.create_all(bind=engine)
+            break
+        except Exception:
+            try:
+                import time as _t
+                _t.sleep(1)
+            except Exception:
+                break
 
 app.include_router(webhooks_router)
 
