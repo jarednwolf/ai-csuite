@@ -105,6 +105,16 @@ class KbSearchResult(BaseModel):
     text: str
     score: float
 
+# --- Phase 13: file ingestion ---
+class KbFileIngest(BaseModel):
+    tenant_id: str
+    project_id: str
+    filename: str
+    content_type: Literal["markdown", "pdf", "text"]
+    content_b64: Optional[str] = None
+    text: Optional[str] = None
+    ref_id: Optional[str] = None
+
 class DiscoveryStatus(BaseModel):
     dor_pass: bool
     missing: List[str]
