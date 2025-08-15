@@ -178,16 +178,16 @@ def open_pr_for_run(db: Session, run_id: str) -> dict:
     and publishes commit statuses (DoR, human-approval pending, artifacts).
     Skips gracefully if token absent or repo_url is unsupported.
     """
-    # Optional kill-switch for tests/CI
+    # Respect dry-run first for deterministic CI behavior
+    if not _write_enabled():
+        return {"skipped": "GITHUB_WRITE_ENABLED=0"}
+    # Optional kill-switch for tests/CI (secondary)
     if os.getenv("GITHUB_PR_ENABLED", "1").strip().lower() in {"0", "false", "no"}:
         return {"skipped": "PR disabled by env (GITHUB_PR_ENABLED=0)"}
     token = os.getenv("GITHUB_TOKEN")
     # Only require token if we intend to write to GitHub
     if _write_enabled() and not token:
         return {"skipped": "GITHUB_TOKEN not set"}
-    # Early exit for dry-run
-    if not _write_enabled():
-        return {"skipped": "GITHUB_WRITE_ENABLED=0"}
 
     run = db.get(RunDB, run_id)
     if not run:
