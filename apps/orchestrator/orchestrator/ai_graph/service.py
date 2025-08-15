@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Tuple, Optional
 from sqlalchemy.orm import Session
 
 from .repo import record_step, get_last
+from ..models import GraphState
 
 
 def with_retry(func: Callable[[], Any], *, max_attempts: int = 3, base_delay: float = 0.02, backoff: float = 2.0):
@@ -28,6 +29,7 @@ def persist_on_step(
     state: Dict[str, Any],
     attempt: int,
     error: Optional[str] = None,
+    logs: Optional[Dict[str, Any]] = None,
 ) -> None:
     # Minimal snapshot only: keys relevant to resume and history
     snapshot = {
@@ -53,7 +55,7 @@ def persist_on_step(
         status=status,
         state_json=snapshot,
         attempt=attempt,
-        logs_json=None,
+        logs_json=logs,
         error=error,
     )
 
@@ -83,5 +85,52 @@ def resume_from_last(db: Session, run_id: str) -> Tuple[Dict[str, Any], int]:
             # Do not advance index for backtrack loop entries; they don't move past qa until success
             pass
     return (state, idx)
+
+
+def compute_run_metrics(db: Session, run_id: str) -> Dict[str, Any]:
+    rows = (
+        db.query(GraphState)
+        .filter(GraphState.run_id == run_id)
+        .order_by(GraphState.step_index.asc(), GraphState.attempt.asc())
+        .all()
+    )
+    steps: list[Dict[str, Any]] = []
+    total_duration_ms = 0
+    qa_attempts = 0
+    for r in rows:
+        logs = r.logs_json or {}
+        duration_ms = int(logs.get("duration_ms") or 0)
+        if r.status == "ok":
+            total_duration_ms += duration_ms
+        # capture latest qa_attempts from state snapshot
+        try:
+            qa_attempts = max(qa_attempts, int((r.state_json or {}).get("qa_attempts") or 0))
+        except Exception:
+            pass
+        steps.append(
+            {
+                "step_index": r.step_index,
+                "step_name": r.step_name,
+                "status": r.status,
+                "attempt": r.attempt,
+                "duration_ms": duration_ms,
+            }
+        )
+    # Simple deterministic cost model: 100 tokens per step attempt
+    estimated_tokens = len(steps) * 100
+    estimated_usd = round(estimated_tokens * 0.000002, 6)
+    return {
+        "run_id": run_id,
+        "steps": steps,
+        "totals": {
+            "total_duration_ms": total_duration_ms,
+            "qa_attempts": qa_attempts,
+            "steps_count": len(steps),
+        },
+        "cost": {
+            "estimated_tokens": estimated_tokens,
+            "estimated_usd": estimated_usd,
+        },
+    }
 
 
