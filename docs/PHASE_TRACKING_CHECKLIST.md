@@ -172,7 +172,7 @@ Mark `[x]` when complete.
 ---
 
 ## Phase 12 — Multi-Persona Agents
-- [ ] **Goal:** Each role (CoS, HP, DL, RL, CTO, ENG, QA) runs as separate agent with shared memory.
+- [x] **Goal:** Each role (CoS, HP, DL, RL, CTO, ENG, QA) runs as separate agent with shared memory.
 - **Key Changes:**
   - Agent prompt templates per role; orchestrator shared_memory passed across steps and persisted for resume.
 - **Tests:**  
@@ -185,9 +185,10 @@ Mark `[x]` when complete.
 ---
 
 ## Phase 13 — Richer KB + File Ingestion
-- [ ] **Goal:** Ingest PDFs/MD with chunking and embeddings.
+- [x] **Goal:** Ingest PDFs/MD with chunking and embeddings.
 - **Key Changes:**
-  - Vector DB integration with ingestion pipeline.
+  - File ingestion endpoint (`POST /kb/ingest-file`) for markdown/pdf/text.
+  - Local-only PDF parsing via `pypdf`; deterministic embeddings.
 - **Tests:**  
   - [`apps/orchestrator/tests/test_phase13_kb_files.py`](../apps/orchestrator/tests/test_phase13_kb_files.py)
 - **Expected Outcomes:**
@@ -198,11 +199,12 @@ Mark `[x]` when complete.
 ---
 
 ## Phase 14 — Observability & Telemetry
-- [ ] **Goal:** Add OpenTelemetry traces, logs, and cost metrics.
+- [x] **Goal:** Add OpenTelemetry traces, logs, and cost metrics.
 - **Key Changes:**
   - Structured logging and tracing hooks.
 - **Tests:**  
   - [`apps/orchestrator/tests/test_phase14_observability.py`](../apps/orchestrator/tests/test_phase14_observability.py)
+  - Added to `scripts/test_local.sh` suite
 - **Expected Outcomes:**
   - Full visibility into run execution and cost.
 - **Success Criteria:**
@@ -211,7 +213,7 @@ Mark `[x]` when complete.
 ---
 
 ## Phase 15 — Security & Guardrails
-- [ ] **Goal:** Implement secret scanning, permission narrowing, and policy enforcement.
+- [x] **Goal:** Implement secret scanning, permission narrowing, and policy enforcement.
 - **Key Changes:**
   - SAST/secrets job in CI.
 - **Tests:**  
@@ -224,7 +226,7 @@ Mark `[x]` when complete.
 ---
 
 ## Phase 16 — Founder Cockpit UI
-- [ ] **Goal:** Build UI for timeline, statuses, approvals, graph state.
+- [x] **Goal:** Build UI for timeline, statuses, approvals, graph state.
 - **Key Changes:**
   - Web frontend consuming orchestrator API.
 - **Tests:**  

@@ -318,4 +318,18 @@ Multi-persona debate w/ “argue-then-decide” scaffolding + cost routing.
 
 Founder cockpit UI (timeline, statuses, approvals, graph state).
 
+15.1) Founder Cockpit UI (Phase 16)
+
+- Operators can open `http://localhost:8000/ui` to access a minimal UI.
+- Per‑run page at `/ui/run/<run_id>` surfaces:
+  - Run status and created_at (from `/runs/{run_id}`)
+  - PR statuses and merge readiness (from `/integrations/github/pr/{run_id}/statuses`)
+  - Timeline/history (from `/runs/{run_id}/graph/history`)
+  - Metrics (from `/runs/{run_id}/metrics`)
+  - Approve and Merge controls (call existing endpoints)
+- Gating: when `GITHUB_WRITE_ENABLED=0`, Approve/Merge are disabled and a dry‑run banner is shown.
+- No external CDNs; inline CSS/JS only; deterministic and testable.
+
 Vector KB + doc ingestion.
+\n+Note on KB file ingestion (Phase 13):
+\n+The orchestrator supports local, deterministic file ingestion for citations. Use `POST /kb/ingest-file` with `content_type` of `markdown`, `pdf`, or `text`. Markdown is normalized to text (code fences dropped), PDFs are parsed via local `pypdf`, and content is chunked and embedded using the same deterministic local embedding used elsewhere. No network calls are made during ingestion or search.

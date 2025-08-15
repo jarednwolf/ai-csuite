@@ -1,6 +1,6 @@
 # AI C‑Suite — Current Status (2025-08-15)
 
-We are at Phase 11 with the following shipped:
+We are at Phase 16 with the following shipped:
 
 - Projects, Roadmap Items, Runs; Discovery (PRD/Design/Research) with DoR
 - GitHub PR open/statuses/approve/merge; PR Summary comment upsert; Webhooks
@@ -8,12 +8,24 @@ We are at Phase 11 with the following shipped:
   - Early stops via `stop_after` set DB run.status to `paused`
   - `POST /runs/{id}/graph/resume` continues from the next unfinished step
   - `GET /runs/{id}/graph/history` lists per-step attempts (ok/error)
+  - `GET /runs/{id}/metrics` returns deterministic run metrics
+- Founder Cockpit UI at `/ui` and `/ui/run/<run_id>`
+  - Fetches data from existing endpoints; Approve/Merge gating respects `GITHUB_WRITE_ENABLED`
 
 Quick local test:
 
 ```bash
 ./scripts/rebuild_env.sh
 ./scripts/test_local.sh
+UI quickstart:
+
+```bash
+# With services running (docker compose up --build)
+open http://localhost:8000/ui
+# After creating a run, visit:
+open http://localhost:8000/ui/run/$RUN_ID
+```
+
 ```
 
 Quick resume demo:

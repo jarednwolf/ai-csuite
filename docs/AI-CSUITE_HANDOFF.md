@@ -172,6 +172,17 @@ curl -s -X POST http://localhost:8000/runs/$RUN_ID/graph/start \
   -H 'content-type: application/json' -d '{"stop_after":"research"}' | jq .
 curl -s -X POST http://localhost:8000/runs/$RUN_ID/graph/resume -d '{}' | jq .
 
+UI
+
+- Open `http://localhost:8000/ui` for the Founder Cockpit.
+- Per‑run view: `http://localhost:8000/ui/run/$RUN_ID` shows:
+  - Run status and created_at
+  - PR statuses summary (from `/integrations/github/pr/{run_id}/statuses`)
+  - Timeline (from `/runs/{run_id}/graph/history`)
+  - Metrics (from `/runs/{run_id}/metrics`)
+  - Approve and Merge buttons that call existing endpoints
+- Dry‑run gating: when `GITHUB_WRITE_ENABLED=0`, the UI shows a banner and disables Approve/Merge. A local-only override for tests: append `?dry_run=1` to the run page URL.
+
 5) GitHub Flow, Statuses, Webhooks
 
 PR statuses required

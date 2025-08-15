@@ -16,6 +16,10 @@ $PYTEST_BIN -q apps/orchestrator/tests/test_run_start_auto_ensure.py \
             apps/orchestrator/tests/test_phase11_graph_happy_path.py \
             apps/orchestrator/tests/test_phase11_resume.py \
             apps/orchestrator/tests/test_phase11_retry_exhaust.py \
-            apps/orchestrator/tests/test_phase12_personas.py
+            apps/orchestrator/tests/test_phase12_personas.py \
+            apps/orchestrator/tests/test_phase13_kb_files.py \
+            apps/orchestrator/tests/test_phase14_observability.py \
+            apps/orchestrator/tests/test_phase15_security.py \
+            apps/orchestrator/tests/test_phase16_ui.py
 
 
