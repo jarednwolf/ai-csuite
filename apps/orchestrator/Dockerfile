@@ -13,5 +13,5 @@ COPY apps/orchestrator /app
 ENV PYTHONPATH=/app
 
 EXPOSE 8000
-CMD ["uvicorn","orchestrator.app:app","--host","0.0.0.0","--port","8000","--reload"]
+CMD ["uvicorn","orchestrator.app:app","--host","0.0.0.0","--port","8000"]
 
