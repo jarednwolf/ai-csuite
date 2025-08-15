@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Boolean, JSON
+from sqlalchemy import String, Text, Integer, DateTime, ForeignKey, Boolean, JSON, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -97,4 +97,25 @@ class PullRequest(Base):
     url: Mapped[str] = mapped_column(Text)
     state: Mapped[str] = mapped_column(String(32), default="open")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# --- Phase 11: Graph state persistence ---
+class GraphState(Base):
+    __tablename__ = "graph_states"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(36), index=True)
+    step_index: Mapped[int] = mapped_column(Integer)
+    step_name: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16))  # ok|error
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    state_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    logs_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "step_index", "attempt", name="uq_graph_state_run_step_attempt"),
+        Index("ix_graph_state_run", "run_id"),
+    )
 

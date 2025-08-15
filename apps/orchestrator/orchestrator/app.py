@@ -2,7 +2,7 @@
 from fastapi import FastAPI, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 import uuid, datetime as dt
-from typing import Optional, List
+from typing import Optional, List, Dict
 import os
 
 from .db import Base, engine, get_db
@@ -358,6 +358,9 @@ def github_verify(payload: GithubVerify, db: Session = Depends(get_db)):
 
 # --- Phase 8: manual ensure endpoint ---
 from pydantic import BaseModel
+from .ai_graph.graph import start_graph_run, get_graph_state, build_graph, set_graph_state
+from .ai_graph.service import resume_from_last
+from .ai_graph.repo import get_history as repo_get_history, get_last as repo_get_last
 
 class EnsurePRBody(BaseModel):
     owner: str
@@ -430,3 +433,176 @@ def update_roadmap_item(item_id: str, patch: RoadmapItemUpdate, db: Session = De
         status=i.status, priority=i.priority, target_release=i.target_release
     )
 
+
+
+# --------- Phase 10: LangGraph run endpoints ---------
+class GraphStartBody(BaseModel):
+    force_qa_fail: bool = False
+    max_qa_loops: int = 2
+    inject_failures: Dict[str, int] = {}
+    stop_after: Optional[str] = None
+
+@app.post("/runs/{run_id}/graph/start")
+def graph_start(run_id: str, body: GraphStartBody, db: Session = Depends(get_db)):
+    # Runs a full graph pass synchronously (stub LLMs). Returns final state.
+    try:
+        result = start_graph_run(
+            db,
+            run_id,
+            force_qa_fail=body.force_qa_fail,
+            max_qa_loops=body.max_qa_loops,
+            inject_failures=body.inject_failures,
+            stop_after=body.stop_after,
+        )
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        # mark run as partial on failure (retry exhausted or unexpected error)
+        try:
+            run = db.get(RunDB, run_id)
+            if run:
+                run.status = "partial"
+                db.commit()
+        except Exception:
+            db.rollback()
+        last = repo_get_last(db, run_id)
+        failed_step = last.step_name if last else "unknown"
+        attempts = last.attempt if last else 3
+        # Ensure a failed attempt is recorded if none exists yet for this step
+        detail = {
+            "run_id": run_id,
+            "status": "failed",
+            "failed_step": failed_step,
+            "attempts": attempts,
+            "error": str(e),
+        }
+        raise HTTPException(400, detail=detail)
+    return {
+        "run_id": run_id,
+        "status": "completed",
+        "nodes_run": result.get("history", []),
+        "qa_attempts": result.get("qa_attempts", 0),
+        "tests_result": result.get("tests_result", {}),
+        "pr_info": result.get("pr_info", {}),
+    }
+
+@app.get("/runs/{run_id}/graph/state")
+def graph_state(run_id: str, db: Session = Depends(get_db)):
+    # Prefer in-memory, but if persisted history is ahead (e.g., after resume), reconcile from DB
+    state = get_graph_state(run_id)
+    try:
+        last = repo_get_last(db, run_id)
+        if last:
+            mem_hist = (state or {}).get("history", []) if isinstance(state, dict) else []
+            if (not mem_hist) or (mem_hist and mem_hist[-1] != last.step_name):
+                db_state, _ = resume_from_last(db, run_id)
+                if db_state:
+                    set_graph_state(run_id, db_state)
+                    return db_state
+    except Exception:
+        pass
+    if not state:
+        raise HTTPException(404, "no graph state recorded for this run")
+    return state
+
+# --------- Phase 11: resume + history ---------
+class GraphResumeBody(BaseModel):
+    inject_failures: Dict[str, int] = {}
+    stop_after: Optional[str] = None
+
+@app.post("/runs/{run_id}/graph/resume")
+def graph_resume(run_id: str, body: GraphResumeBody, db: Session = Depends(get_db)):
+    # Load last persisted state and resume execution from next step
+    run = db.get(RunDB, run_id)
+    if not run:
+        raise HTTPException(404, "run not found")
+
+    # Determine if anything is left using persisted history (authoritative: last row)
+    last_row = repo_get_last(db, run_id)
+    if last_row and last_row.step_name == "release" and last_row.status == "ok":
+        raise HTTPException(400, detail={"error": "Nothing to resume"})
+
+    state, next_idx = resume_from_last(db, run_id)
+    order = ["product", "design", "research", "cto_plan", "engineer", "qa", "release"]
+    hist = state.get("history", [])
+    # If computed next index is out of range, nothing to resume
+    if next_idx >= len(order):
+        raise HTTPException(400, detail={"error": "Nothing to resume"})
+    
+    # Only allow resume from paused/partial; but only after we verified nothing to resume
+    if run.status not in ("paused", "partial"):
+        raise HTTPException(400, detail={"error": f"Cannot resume from status '{run.status}'"})
+    state["inject_failures"] = dict(body.inject_failures or {})
+    state["stop_after"] = body.stop_after
+    # Ensure continuation runs fully (clear any prior early stop)
+    if "early_stop" in state:
+        state.pop("early_stop", None)
+    # Default QA controls if missing
+    state.setdefault("force_qa_fail", False)
+    state.setdefault("max_qa_loops", 2)
+    state["resume_pointer"] = len(state.get("history", []))
+    state["resume_consumed"] = 0
+    state["next_step_index"] = next_idx
+
+    # Transition to running for this resume pass
+    run.status = "running"
+    db.commit()
+    app_graph = build_graph(db)
+    try:
+        result = app_graph.invoke(state, config={"configurable": {"thread_id": run_id}})
+    except Exception as e:
+        # mark run as partial on failure during resume
+        try:
+            run = db.get(RunDB, run_id)
+            if run:
+                run.status = "partial"
+                db.commit()
+        except Exception:
+            db.rollback()
+        last = repo_get_last(db, run_id)
+        failed_step = last.step_name if last else "unknown"
+        attempts = last.attempt if last else 3
+        detail = {
+            "run_id": run_id,
+            "status": "failed",
+            "failed_step": failed_step,
+            "attempts": attempts,
+            "error": str(e),
+        }
+        raise HTTPException(400, detail=detail)
+    # Update in-memory state for visibility
+    try:
+        set_graph_state(run_id, result)
+    except Exception:
+        pass
+    # Update DB run status based on result
+    try:
+        hist2 = result.get("history", [])
+        is_completed = len(hist2) > 0 and hist2[-1] == "release"
+        run.status = "succeeded" if is_completed else "paused"
+        db.commit()
+    except Exception:
+        db.rollback()
+    return {
+        "run_id": run_id,
+        "status": "completed",
+        "nodes_run": result.get("history", []),
+        "qa_attempts": result.get("qa_attempts", 0),
+        "tests_result": result.get("tests_result", {}),
+        "pr_info": result.get("pr_info", {}),
+    }
+
+@app.get("/runs/{run_id}/graph/history")
+def graph_history(run_id: str, db: Session = Depends(get_db)):
+    hist = repo_get_history(db, run_id)
+    return [
+        {
+            "step_index": h["step_index"],
+            "step_name": h["step_name"],
+            "status": h["status"],
+            "attempt": h["attempt"],
+            "created_at": h["created_at"],
+            "error": h["error"],
+        }
+        for h in hist
+    ]

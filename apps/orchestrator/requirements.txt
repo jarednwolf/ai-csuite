@@ -8,3 +8,8 @@ psycopg[binary]==3.2.1
 python-dotenv==1.0.1
 numpy==2.0.1
 temporalio==1.7.0
+
+# --- Phase 10: LangGraph engine ---
+langgraph>=0.2.0,<1.0
+langchain-core>=0.2.0,<1.0
+typing-extensions>=4.8.0

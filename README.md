@@ -1,3 +1,34 @@
+# AI C‑Suite — Current Status (2025-08-15)
+
+We are at Phase 11 with the following shipped:
+
+- Projects, Roadmap Items, Runs; Discovery (PRD/Design/Research) with DoR
+- GitHub PR open/statuses/approve/merge; PR Summary comment upsert; Webhooks
+- LangGraph delivery pipeline with Postgres-persisted graph state and resume
+  - Early stops via `stop_after` set DB run.status to `paused`
+  - `POST /runs/{id}/graph/resume` continues from the next unfinished step
+  - `GET /runs/{id}/graph/history` lists per-step attempts (ok/error)
+
+Quick local test:
+
+```bash
+./scripts/rebuild_env.sh
+./scripts/test_local.sh
+```
+
+Quick resume demo:
+
+```bash
+# Create project/item/run, then:
+curl -s -X POST http://localhost:8000/runs/$RUN_ID/graph/start \
+  -H 'content-type: application/json' -d '{"stop_after":"research"}' | jq .
+
+# Status will be paused; resume to finish remaining steps
+curl -s -X POST http://localhost:8000/runs/$RUN_ID/graph/resume -d '{}' | jq .
+```
+
+---
+
 # AI C‑Suite — Phase 6 (GitHub PRs from runs)
 
 This phase lets a delivery run:
@@ -439,3 +470,89 @@ On PR open (Phase 7/8 path): PR gets statuses + a Summary comment with DoR resul
 On pushes to the PR branch: webhook (or manual ensure) refreshes artifacts, updates statuses, and updates the same summary comment (identified by a hidden marker).
 
 CI runs your safe tests on every PR; Live E2E is a manual button when you want to validate against GitHub.
+
+## Phase 10 — LangGraph multi‑agent pipeline
+
+**What it does**
+- Runs a parameterized, reusable graph per roadmap item with nodes:
+  `Product → Design → Research → CTO Plan → Engineer → QA (loop) → Release`.
+- Uses LangGraph checkpointing (`LANGGRAPH_CHECKPOINT=sqlite|memory`).
+
+**Env**
+- `LANGGRAPH_CHECKPOINT=sqlite` (default) or `memory`.
+
+**API**
+- `POST /runs/{run_id}/graph/start`
+  - Body: `{"force_qa_fail": false, "max_qa_loops": 2}`
+- `GET /runs/{run_id}/graph/state`
+
+**Try it**
+```bash
+# Start services
+docker compose up --build
+
+# Create project/item/run as usual, then:
+curl -s -X POST http://localhost:8000/runs/<RUN_ID>/graph/start \
+  -H "content-type: application/json" \
+  -d '{"force_qa_fail": false, "max_qa_loops": 2}' | jq .
+
+curl -s http://localhost:8000/runs/<RUN_ID>/graph/state | jq .
+```
+
+Automated tests
+
+```bash
+./scripts/test_local.sh
+```
+
+---
+
+## ✅ Command Checklist (paste into your terminal)
+
+```bash
+cd ai-csuite
+
+# 1) Rebuild to install new orchestrator deps
+docker compose up --build
+
+# 2) (Optional) Confirm API is healthy
+curl -s http://localhost:8000/healthz
+
+# 3) Run the local test suite (includes Phase 10 tests)
+./scripts/test_local.sh
+
+# 4) Manual smoke (if you want):
+# Create project
+curl -s -X POST http://localhost:8000/projects \
+ -H "content-type: application/json" \
+ -d '{"tenant_id":"00000000-0000-0000-0000-000000000000","name":"LG Demo","description":"","repo_url":""}' | tee /tmp/lg_proj.json
+PROJECT_ID=$(jq -r .id </tmp/lg_proj.json)
+
+# Create roadmap item
+curl -s -X POST http://localhost:8000/roadmap-items \
+ -H "content-type: application/json" \
+ -d '{"tenant_id":"00000000-0000-0000-0000-000000000000","project_id":"'"$PROJECT_ID"'","title":"LG Feature"}' | tee /tmp/lg_item.json
+ITEM_ID=$(jq -r .id </tmp/lg_item.json)
+
+# Create run
+curl -s -X POST http://localhost:8000/runs \
+ -H "content-type: application/json" \
+ -d '{"tenant_id":"00000000-0000-0000-0000-000000000000","project_id":"'"$PROJECT_ID"'","roadmap_item_id":"'"$ITEM_ID"'","phase":"delivery"}' | tee /tmp/lg_run.json
+RUN_ID=$(jq -r .id </tmp/lg_run.json)
+
+# Start graph (happy path)
+curl -s -X POST http://localhost:8000/runs/$RUN_ID/graph/start \
+  -H "content-type: application/json" \
+  -d '{"force_qa_fail": false, "max_qa_loops": 2}' | jq .
+
+# State
+curl -s http://localhost:8000/runs/$RUN_ID/graph/state | jq .
+```
+
+Notes & Future Hooks
+
+This graph uses stubbed node logic so it’s fast and stable in CI. In Phase 12, we’ll attach a Runner that applies real code patches and executes tests in a sandboxed container; the QA loop will then be fully “self-correcting.”
+
+If you want the Release node to always open a PR when repo_url is set, it already calls your open_pr_for_run (skips safely if not possible).
+
+The graph is project‑agnostic and item‑aware (it’s parameterized by tenant_id, project_id, roadmap_item_id), so you can reuse it for every new roadmap item.
