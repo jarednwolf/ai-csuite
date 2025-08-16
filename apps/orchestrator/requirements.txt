@@ -11,7 +11,7 @@ temporalio==1.7.0
 
 # --- Phase 10: LangGraph engine ---
 langgraph==0.2.32
-langchain-core==0.2.32
+langchain-core==0.2.39
 typing-extensions==4.12.2
 
 # --- Phase 13: local PDF parsing ---
