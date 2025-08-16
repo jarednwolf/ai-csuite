@@ -547,6 +547,12 @@ class GraphStartBody(BaseModel):
 @app.post("/runs/{run_id}/graph/start")
 def graph_start(run_id: str, body: GraphStartBody, db: Session = Depends(get_db)):
     # Runs a full graph pass synchronously (stub LLMs). Returns final state.
+    # Pre-checks for clearer errors and to avoid misclassifying downstream ValueErrors
+    run = db.get(RunDB, run_id)
+    if not run:
+        raise HTTPException(404, "run not found")
+    if not run.roadmap_item_id:
+        raise HTTPException(400, "run has no roadmap_item_id")
     try:
         result = start_graph_run(
             db,
@@ -557,7 +563,8 @@ def graph_start(run_id: str, body: GraphStartBody, db: Session = Depends(get_db)
             stop_after=body.stop_after,
         )
     except ValueError as e:
-        raise HTTPException(404, str(e))
+        # Treat unexpected ValueErrors during execution as bad request
+        raise HTTPException(400, str(e))
     except Exception as e:
         # mark run as partial on failure (retry exhausted or unexpected error)
         try:
