@@ -1,0 +1,29 @@
+{
+  "id": "web-crud-fastapi-postgres-react",
+  "version": "1.0.0",
+  "name": "Web CRUD (FastAPI + Postgres + React)",
+  "description": "Auth, CRUD, list/detail, search, audit logs, seeded data",
+  "stack": {
+    "backend": {"runtime": "python3.12", "framework": "fastapi", "db": "postgres"},
+    "frontend": {"framework": "react"},
+    "infra": {"containers": true, "iac": "terraform", "preview_envs": true}
+  },
+  "capabilities": ["auth", "crud", "search", "uploads", "email", "metrics"],
+  "quality_gates": {
+    "a11y_min": 80,
+    "e2e_cov_min": 0.7,
+    "perf_budget_ms": 1500
+  },
+  "scaffold": [
+    {"step": "init_repo_or_branch"},
+    {"step": "create_backend_service"},
+    {"step": "create_frontend_app"},
+    {"step": "db_migrations_and_seed"},
+    {"step": "wire_ci_cd_and_iac"},
+    {"step": "add_e2e_tests"},
+    {"step": "open_pr_and_request_gates"}
+  ],
+  "deploy_targets": ["preview", "staging", "prod"]
+}
+
+

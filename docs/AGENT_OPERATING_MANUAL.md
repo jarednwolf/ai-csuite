@@ -181,9 +181,15 @@ QA recommendation = proceed.
 
 PR merged; roadmap updated; KB ingested with learnings.
 
+Postmortem & Learning Loop (Phase 30)
+
+- After merge or run completion, generate a deterministic postmortem artifact summarizing: status, timeline, retries, failed steps, alerts, budget, causes, learnings, and action items.
+- Ingest a short, strictly redacted summary paragraph into the local KB (`postmortem` kind) to close the loop for future retrieval by Product/Research.
+- Minimal audit events are recorded (actor=api) for generation/reset/ingest with redacted details.
+
 6) Failure Handling & Loops
 
-Retries: Exponential backoff, max 3 per failing step.
+Retries: Exponential backoff, max 3 per failing step. For partner adapters (Phase 29), retries/backoff are tracked deterministically without sleeping; idempotency keys avoid duplicate work; rate‑limits and circuit‑breakers are enforced locally and reset via API.
 
 QA↔ENG loop: max_qa_loops (default 3). Each loop appends a defect item.
 
@@ -331,5 +337,24 @@ Founder cockpit UI (timeline, statuses, approvals, graph state).
 - No external CDNs; inline CSS/JS only; deterministic and testable.
 
 Vector KB + doc ingestion.
-\n+Note on KB file ingestion (Phase 13):
-\n+The orchestrator supports local, deterministic file ingestion for citations. Use `POST /kb/ingest-file` with `content_type` of `markdown`, `pdf`, or `text`. Markdown is normalized to text (code fences dropped), PDFs are parsed via local `pypdf`, and content is chunked and embedded using the same deterministic local embedding used elsewhere. No network calls are made during ingestion or search.
+
+Note on KB file ingestion (Phase 13):
+
+The orchestrator supports local, deterministic file ingestion for citations. Use `POST /kb/ingest-file` with `content_type` of `markdown`, `pdf`, or `text`. Markdown is normalized to text (code fences dropped), PDFs are parsed via local `pypdf`, and content is chunked and embedded using the same deterministic local embedding used elsewhere. No network calls are made during ingestion or search.
+
+16) Scheduler Interactions (Phase 28)
+
+- Purpose: Scale many runs deterministically with fairness and quotas, offline only.
+- Controls (env defaults; can be overridden via policy PATCH during a process):
+  - `SCHED_ENABLED=1`
+  - `SCHED_CONCURRENCY=2` (global max active)
+  - `SCHED_TENANT_MAX_ACTIVE=1` (per‑tenant active cap)
+  - `SCHED_QUEUE_MAX=100` (backpressure limit)
+- API:
+  - `POST /scheduler/enqueue {run_id, priority?}` — idempotent add. 400 when capacity exceeded.
+  - `GET /scheduler/queue` — deterministic snapshot and sorted list (priority desc; then enqueued_at asc; then run_id asc).
+  - `POST /scheduler/step` — leases next eligible run respecting concurrency and quotas; synchronously runs it; returns snapshot and `leased` id.
+  - `GET /scheduler/policy` / `PATCH /scheduler/policy` — read/update policy for the process.
+  - `GET /scheduler/stats` — counters: `leases`, `skipped_due_to_quota`, `completed`.
+- Cockpit: `/ui/scheduler` shows queue, policy, stats, and a Step button. DOM is stable (no timestamps), lists sorted.
+- Autonomy: L0/L1 both respect scheduler policies; at L0, enqueue only; at L1, step can be automated by a human operator invoking the Step action.

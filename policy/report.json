@@ -1,0 +1,31 @@
+{
+  "results": [
+    {
+      "id": "budget_not_blocked",
+      "ok": true,
+      "severity": "block"
+    },
+    {
+      "id": "dor_ready",
+      "ok": true,
+      "severity": "block"
+    },
+    {
+      "id": "license_compliant",
+      "ok": true,
+      "severity": "block"
+    },
+    {
+      "id": "budget_warn_threshold",
+      "ok": true,
+      "severity": "warn"
+    },
+    {
+      "id": "required_statuses_green",
+      "message": "Required contexts missing or not green: ai-csuite/artifacts, ai-csuite/preview-smoke",
+      "ok": false,
+      "severity": "block"
+    }
+  ],
+  "status": "fail"
+}

@@ -4,6 +4,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from ..models import Project, RoadmapItem, PRD, DesignCheck, ResearchNote, RunDB, PullRequest
+from ..security import audit_event
 from ..discovery import dor_check
 
 GITHUB_API_BASE = os.getenv("GITHUB_API_BASE", "https://api.github.com")
@@ -11,6 +12,9 @@ GITHUB_API_BASE = os.getenv("GITHUB_API_BASE", "https://api.github.com")
 CTX_DOR = "ai-csuite/dor"
 CTX_HUMAN = "ai-csuite/human-approval"
 CTX_ARTIFACTS = "ai-csuite/artifacts"
+CTX_PREVIEW = "ai-csuite/preview-smoke"
+CTX_BUDGET = "ai-csuite/budget"
+CTX_ALERTS = "ai-csuite/alerts"
 
 COMMENT_MARKER_PREFIX = "ai-csuite:summary"
 
@@ -154,8 +158,12 @@ def _merge_pr(client: httpx.Client, owner: str, repo: str, number: int, *, metho
 def _required_contexts() -> List[str]:
     env_val = os.getenv("GITHUB_REQUIRED_CONTEXTS", "").strip()
     if not env_val:
-        return [CTX_DOR, CTX_HUMAN]
+        # Include preview smoke starting Phase 18; budget is optional and can be added via env
+        return [CTX_DOR, CTX_HUMAN, CTX_ARTIFACTS, CTX_PREVIEW]
     return [c.strip() for c in env_val.split(",") if c.strip()]
+
+def _pr_enabled() -> bool:
+    return os.getenv("GITHUB_PR_ENABLED", "1").strip().lower() not in {"0", "false", "no"}
 
 def verify_repo_access(repo_url: str) -> dict:
     token = os.getenv("GITHUB_TOKEN")
@@ -327,6 +335,14 @@ _Accessibility notes:_
             description="Artifacts committed by AI‑CSuite",
             headers=headers,
         )
+        # Initialize preview smoke gate as pending; real success set by preview smoke endpoint
+        _set_status(
+            c, owner, repo, head_sha,
+            context=CTX_PREVIEW,
+            state="pending",
+            description="Preview pending",
+            headers=headers,
+        )
 
         # After publishing statuses, upsert summary comment (best-effort)
         try:
@@ -380,8 +396,54 @@ def set_status_for_run(db: Session, run_id: str, *, context: str, state: str, de
         res = _set_status(c, info["owner"], info["repo"], info["head_sha"], context=context, state=state, description=description, headers=headers)
         return {"ok": True, "context": context, "state": state, "status_id": res.get("id")}
 
+# ---- Phase 18 helpers: preview smoke status + marker upsert for branch (dry-run aware) ----
+def set_preview_status_for_branch(owner: str, repo: str, branch: str, *, state: str, description: str = "", target_url: str | None = None) -> dict:
+    # Respect dry-run and PR-enable gates
+    if not _write_enabled() or not _pr_enabled():
+        return {"dry_run": True, "context": CTX_PREVIEW, "state": state, "description": description, "target_url": target_url}
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        return {"skipped": "GITHUB_TOKEN not set"}
+    headers = _headers(token)
+    with httpx.Client() as c:
+        # Resolve head SHA for branch
+        try:
+            ref = _get_ref(c, owner, repo, branch, headers)
+            sha = ref["object"]["sha"]
+        except httpx.HTTPStatusError as e:
+            return {"error": f"cannot resolve branch '{branch}': {e.response.status_code}"}
+        res = _set_status(c, owner, repo, sha, context=CTX_PREVIEW, state=state, description=description, target_url=target_url, headers=headers)
+        return {"ok": True, "status_id": res.get("id"), "context": CTX_PREVIEW, "state": state}
+
+def upsert_marker_comment_for_branch(owner: str, repo: str, branch: str, body: str) -> dict:
+    # Dry-run aware; only attempts when token available
+    if not _write_enabled() or not _pr_enabled():
+        return {"dry_run": True}
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        return {"skipped": "GITHUB_TOKEN not set"}
+    headers = _headers(token)
+    with httpx.Client() as c:
+        # Find open PR by head
+        prs = c.get(f"{GITHUB_API_BASE}/repos/{owner}/{repo}/pulls", headers=headers, params={"state": "open", "head": f"{owner}:{branch}"}, timeout=30)
+        if prs.status_code != 200 or not prs.json():
+            return {"skipped": "no open PR for branch"}
+        number = prs.json()[0]["number"]
+        comments = _list_issue_comments(c, owner, repo, number, headers)
+        cid = _find_marker_comment_id(comments, branch)
+        if cid:
+            res = _update_issue_comment(c, owner, repo, cid, body, headers)
+        else:
+            res = _create_issue_comment(c, owner, repo, number, body, headers)
+        return {"ok": True, "comment_id": res.get("id"), "number": number}
+
 def approve_pr_for_run(db: Session, run_id: str) -> dict:
-    return set_status_for_run(db, run_id, context=CTX_HUMAN, state="success", description="Approved by human")
+    res = set_status_for_run(db, run_id, context=CTX_HUMAN, state="success", description="Approved by human")
+    try:
+        audit_event(db, actor="service", event_type="github.approve", run_id=run_id, request_id=f"{run_id}:gh:approve", details={"result": res})
+    except Exception:
+        pass
+    return res
 
 def refresh_dor_status_for_run(db: Session, run_id: str) -> dict:
     run = db.get(RunDB, run_id)
@@ -474,6 +536,138 @@ def upsert_pr_summary_comment_for_run(db: Session, run_id: str) -> dict:
             res = _create_issue_comment(c, owner, repo, number, body, headers)
         return {"ok": True, "comment_id": res.get("id")}
 
+
+# ---- Phase 19: Budget status + summary append ----
+def set_budget_status_for_branch(owner: str, repo: str, branch: str, *, state: str, description: str = "", target_url: str | None = None) -> dict:
+    # Respect dry-run and PR-enable gates
+    if not _write_enabled() or not _pr_enabled():
+        return {"dry_run": True, "context": CTX_BUDGET, "state": state, "description": description, "target_url": target_url}
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        return {"skipped": "GITHUB_TOKEN not set"}
+    headers = _headers(token)
+    with httpx.Client() as c:
+        # Resolve head SHA for branch
+        try:
+            ref = _get_ref(c, owner, repo, branch, headers)
+            sha = ref["object"]["sha"]
+        except httpx.HTTPStatusError as e:
+            return {"error": f"cannot resolve branch '{branch}': {e.response.status_code}"}
+        res = _set_status(c, owner, repo, sha, context=CTX_BUDGET, state=state, description=description, target_url=target_url, headers=headers)
+        return {"ok": True, "status_id": res.get("id"), "context": CTX_BUDGET, "state": state}
+
+
+def upsert_pr_summary_comment_for_run_with_budget(db: Session, run_id: str, budget_md: str) -> dict:
+    if not _write_enabled():
+        return {"skipped": "GITHUB_WRITE_ENABLED=0"}
+
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        return {"skipped": "GITHUB_TOKEN not set"}
+
+    run = db.get(RunDB, run_id)
+    if not run:
+        return {"error": "run not found"}
+    project = db.get(Project, run.project_id)
+    item = db.get(RoadmapItem, run.roadmap_item_id) if run.roadmap_item_id else None
+
+    pr = (
+        db.query(PullRequest)
+        .filter(PullRequest.run_id == run_id)
+        .order_by(PullRequest.created_at.desc())
+        .first()
+    )
+    if not pr:
+        return {"error": "no PR recorded for this run"}
+    owner, repo = pr.repo.split("/", 1)
+    branch = pr.branch
+    number = pr.number
+
+    ok, missing, _ = dor_check(db, run.tenant_id, run.project_id, run.roadmap_item_id)
+    base_dir = f"docs/roadmap/{(run.roadmap_item_id or run.id)[:8]}-{_slug(item.title if item else 'change')}"
+    base_body = build_pr_summary_md(
+        project_name=project.name, item_title=item.title if item else "Change",
+        branch=branch, dor_pass=ok, missing=missing, owner=owner, repo=repo, base_dir=base_dir
+    )
+    marker = f"<!-- {COMMENT_MARKER_PREFIX}:{branch} -->"
+    if marker in base_body:
+        body = base_body.replace(marker, budget_md + "\n" + marker)
+    else:
+        body = base_body + "\n" + budget_md + "\n" + marker
+
+    headers = _headers(token)
+    with httpx.Client() as c:
+        comments = _list_issue_comments(c, owner, repo, number, headers)
+        cid = _find_marker_comment_id(comments, branch)
+        if cid:
+            res = _update_issue_comment(c, owner, repo, cid, body, headers)
+        else:
+            res = _create_issue_comment(c, owner, repo, number, body, headers)
+        return {"ok": True, "comment_id": res.get("id")}
+
+# ---- Phase 20: Alerts status + summary append (dry-run aware) ----
+def set_alerts_status_for_branch(owner: str, repo: str, branch: str, *, state: str, description: str = "", target_url: str | None = None) -> dict:
+    if not _write_enabled() or not _pr_enabled():
+        return {"dry_run": True, "context": CTX_ALERTS, "state": state, "description": description, "target_url": target_url}
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        return {"skipped": "GITHUB_TOKEN not set"}
+    headers = _headers(token)
+    with httpx.Client() as c:
+        try:
+            ref = _get_ref(c, owner, repo, branch, headers)
+            sha = ref["object"]["sha"]
+        except httpx.HTTPStatusError as e:
+            return {"error": f"cannot resolve branch '{branch}': {e.response.status_code}"}
+        res = _set_status(c, owner, repo, sha, context=CTX_ALERTS, state=state, description=description, target_url=target_url, headers=headers)
+        return {"ok": True, "status_id": res.get("id"), "context": CTX_ALERTS, "state": state}
+
+def upsert_pr_summary_comment_for_run_with_ops(db: Session, run_id: str, ops_md: str) -> dict:
+    if not _write_enabled():
+        return {"skipped": "GITHUB_WRITE_ENABLED=0"}
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        return {"skipped": "GITHUB_TOKEN not set"}
+    run = db.get(RunDB, run_id)
+    if not run:
+        return {"error": "run not found"}
+    project = db.get(Project, run.project_id)
+    item = db.get(RoadmapItem, run.roadmap_item_id) if run.roadmap_item_id else None
+
+    pr = (
+        db.query(PullRequest)
+        .filter(PullRequest.run_id == run_id)
+        .order_by(PullRequest.created_at.desc())
+        .first()
+    )
+    if not pr:
+        return {"error": "no PR recorded for this run"}
+    owner, repo = pr.repo.split("/", 1)
+    branch = pr.branch
+    number = pr.number
+
+    ok, missing, _ = dor_check(db, run.tenant_id, run.project_id, run.roadmap_item_id)
+    base_dir = f"docs/roadmap/{(run.roadmap_item_id or run.id)[:8]}-{_slug(item.title if item else 'change')}"
+    base_body = build_pr_summary_md(
+        project_name=project.name, item_title=item.title if item else "Change",
+        branch=branch, dor_pass=ok, missing=missing, owner=owner, repo=repo, base_dir=base_dir
+    )
+    marker = f"<!-- {COMMENT_MARKER_PREFIX}:{branch} -->"
+    if marker in base_body:
+        body = base_body.replace(marker, ops_md + "\n" + marker)
+    else:
+        body = base_body + "\n" + ops_md + "\n" + marker
+
+    headers = _headers(token)
+    with httpx.Client() as c:
+        comments = _list_issue_comments(c, owner, repo, number, headers)
+        cid = _find_marker_comment_id(comments, branch)
+        if cid:
+            res = _update_issue_comment(c, owner, repo, cid, body, headers)
+        else:
+            res = _create_issue_comment(c, owner, repo, number, body, headers)
+        return {"ok": True, "comment_id": res.get("id")}
+
 def merge_pr_for_run(db: Session, run_id: str, method: str = "squash") -> dict:
     info, err = _pr_info_for_run(db, run_id)
     if err:
@@ -495,7 +689,12 @@ def merge_pr_for_run(db: Session, run_id: str, method: str = "squash") -> dict:
         if row:
             row.state = "merged" if res.get("merged") else row.state
             db.commit()
-        return {"merged": bool(res.get("merged")), "message": res.get("message"), "sha": res.get("sha")}
+        result = {"merged": bool(res.get("merged")), "message": res.get("message"), "sha": res.get("sha")}
+        try:
+            audit_event(db, actor="service", event_type="github.merge", run_id=run_id, request_id=f"{run_id}:gh:merge", details={"method": method, "result": result})
+        except Exception:
+            pass
+        return result
 
 # --- Phase 8 helpers: refresh artifacts for any PR branch ---
 import os, re, json

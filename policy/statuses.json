@@ -1,0 +1,12 @@
+{
+  "statuses": [
+    {
+      "context": "ai-csuite/dor",
+      "state": "success"
+    },
+    {
+      "context": "ai-csuite/human-approval",
+      "state": "success"
+    }
+  ]
+}

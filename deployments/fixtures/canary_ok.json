@@ -1,0 +1,27 @@
+{
+  "id": "canary_ok",
+  "steps": [
+    {
+      "percent": 10,
+      "metrics": {
+        "error_rate": 0.005,
+        "p95_ms": 300
+      }
+    },
+    {
+      "percent": 50,
+      "metrics": {
+        "error_rate": 0.01,
+        "p95_ms": 500
+      }
+    },
+    {
+      "percent": 100,
+      "metrics": {
+        "error_rate": 0.015,
+        "p95_ms": 700
+      }
+    }
+  ],
+  "version": "1"
+}

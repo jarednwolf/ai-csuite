@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import time
 from typing import TypedDict, Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 
@@ -223,27 +224,33 @@ def build_graph(db: Session):
             def _attempt() -> PipelineState:
                 nonlocal attempts
                 attempts += 1
+                t0 = time.perf_counter()
                 # Inject deterministic failures for tests before executing logic
                 inj = s.get("inject_failures") or {}
                 count = int(inj.get(step_name, 0) or 0)
                 if count > 0:
                     inj[step_name] = count - 1
                     # record error attempt
-                    persist_on_step(db, s["run_id"], step_index, step_name, "error", s, attempts, error=f"Injected failure at {step_name}")
+                    dt_ms = int((time.perf_counter() - t0) * 1000)
+                    persist_on_step(db, s["run_id"], step_index, step_name, "error", s, attempts, error=f"Injected failure at {step_name}", logs={"duration_ms": dt_ms})
                     raise RuntimeError(f"Injected failure at {step_name}")
 
                 try:
-                    return fn(s, db)
+                    result_state = fn(s, db)
+                    return result_state
                 except Exception as e:
                     # record error attempt, then re-raise for retry
-                    persist_on_step(db, s["run_id"], step_index, step_name, "error", s, attempts, error=str(e))
+                    dt_ms = int((time.perf_counter() - t0) * 1000)
+                    persist_on_step(db, s["run_id"], step_index, step_name, "error", s, attempts, error=str(e), logs={"duration_ms": dt_ms})
                     raise
 
             # Run with retry/backoff
+            t_total0 = time.perf_counter()
             result = with_retry(_attempt, max_attempts=3, base_delay=0.02, backoff=2.0)
 
             # Persist success with final attempt count
-            persist_on_step(db, s["run_id"], step_index, step_name, "ok", result, attempts)
+            dt_total_ms = int((time.perf_counter() - t_total0) * 1000)
+            persist_on_step(db, s["run_id"], step_index, step_name, "ok", result, attempts, logs={"duration_ms": dt_total_ms})
 
             # Bookkeeping: advance to next index and clear current markers
             result["next_step_index"] = step_index + 1

@@ -119,3 +119,58 @@ class GraphState(Base):
         Index("ix_graph_state_run", "run_id"),
     )
 
+
+# --- Phase 19: Budget ledger ---
+class BudgetUsage(Base):
+    __tablename__ = "budget_usages"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(36), index=True)
+    persona: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)  # null for totals
+    tokens_in: Mapped[int] = mapped_column(Integer, default=0)
+    tokens_out: Mapped[int] = mapped_column(Integer, default=0)
+    cost_cents: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="ok")  # ok|warn|blocked
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("run_id", "persona", name="uq_budget_run_persona"),
+        Index("ix_budget_run", "run_id"),
+    )
+
+
+# --- Phase 23: Audit logs (append-only) ---
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    ts: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    actor: Mapped[str] = mapped_column(String(64), default="system")
+    event_type: Mapped[str] = mapped_column(String(64))
+    run_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    project_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    request_id: Mapped[str] = mapped_column(String(64), default="")
+    details_redacted: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    __table_args__ = (
+        # Idempotency on retries: same logical event may be written multiple times; dedupe by tuple
+        UniqueConstraint("event_type", "run_id", "request_id", name="uq_audit_event_req"),
+        Index("ix_audit_ts", "ts"),
+        Index("ix_audit_event", "event_type"),
+    )
+
+
+# --- Phase 28: Scheduler queue (deterministic, offline-only) ---
+class SchedulerItem(Base):
+    __tablename__ = "scheduler_items"
+    run_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    state: Mapped[str] = mapped_column(String(16), default="queued", index=True)  # queued|active|completed
+    enqueued_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_sched_state", "state"),
+        Index("ix_sched_priority", "priority"),
+        Index("ix_sched_tenant_state", "tenant_id", "state"),
+    )

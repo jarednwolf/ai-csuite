@@ -2,6 +2,7 @@ import os, hmac, hashlib
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.orm import Session
 from .db import get_db
+from .security import audit_event
 from .integrations.github import ensure_and_update_for_branch_event
 
 router = APIRouter()
@@ -41,12 +42,26 @@ async def github_webhook(request: Request, db: Session = Depends(get_db)):
                 number = payload.get("number")
                 if not repo or not owner or not branch:
                     # Dry-run safe fallback
-                    return {"ok": True, "handled": True, "result": {"dry_run": True, "reason": "missing repo/owner/branch"}}
+                    res = {"dry_run": True, "reason": "missing repo/owner/branch"}
+                    try:
+                        audit_event(db, actor="webhook", event_type="webhook.github", request_id=f"gh:{action}", details={"event": event, "result": res})
+                    except Exception:
+                        pass
+                    return {"ok": True, "handled": True, "result": res}
                 res = ensure_and_update_for_branch_event(db, owner, repo, branch, number)
+                try:
+                    audit_event(db, actor="webhook", event_type="webhook.github", request_id=f"gh:{action}:{owner}/{repo}:{branch}", details={"event": event, "owner": owner, "repo": repo, "branch": branch, "result": res})
+                except Exception:
+                    pass
                 return {"ok": True, "handled": True, "result": res}
             except Exception as e:
                 # Never 500 on webhook simulation; return a dry-run stub
-                return {"ok": True, "handled": True, "result": {"dry_run": True, "error": str(e)}}
+                res = {"dry_run": True, "error": str(e)}
+                try:
+                    audit_event(db, actor="webhook", event_type="webhook.github", request_id=f"gh:{action}:error", details={"event": event, "error": str(e)})
+                except Exception:
+                    pass
+                return {"ok": True, "handled": True, "result": res}
         return {"ok": True, "handled": False, "reason": f"action {action} ignored"}
     return {"ok": True, "handled": False, "reason": f"event {event} ignored"}
 

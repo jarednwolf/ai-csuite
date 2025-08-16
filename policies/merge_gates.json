@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "description": "AI‑CSuite merge gates (local JSON DSL)",
+  "rules": [
+    {
+      "id": "required_statuses_green",
+      "severity": "block",
+      "expr": {
+        "allOf": [
+          {"contains": {"left": {"var": "statuses.ok_contexts"}, "right": "ai-csuite/dor"}},
+          {"contains": {"left": {"var": "statuses.ok_contexts"}, "right": "ai-csuite/human-approval"}},
+          {"contains": {"left": {"var": "statuses.ok_contexts"}, "right": "ai-csuite/artifacts"}},
+          {"contains": {"left": {"var": "statuses.ok_contexts"}, "right": "ai-csuite/preview-smoke"}}
+        ]
+      }
+    },
+    {
+      "id": "license_compliant",
+      "severity": "block",
+      "expr": {"eq": [{"var": "licenses.violations_count"}, 0]}
+    },
+    {
+      "id": "budget_not_blocked",
+      "severity": "block",
+      "expr": {"not": {"eq": [{"var": "budget.status"}, "blocked"]}}
+    },
+    {
+      "id": "budget_warn_threshold",
+      "severity": "warn",
+      "expr": {"not": {"eq": [{"var": "budget.status"}, "warn"]}}
+    },
+    {
+      "id": "dor_ready",
+      "severity": "block",
+      "expr": {"eq": [{"var": "dor.ready"}, true]}
+    }
+  ]
+}
+

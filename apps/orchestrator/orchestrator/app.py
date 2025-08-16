@@ -23,10 +23,20 @@ from .kb import ingest_document, markdown_to_text, pdf_to_text_bytes
 from .integrations.github import verify_repo_access, open_pr_for_run
 from .integrations.github import upsert_pr_summary_comment_for_run
 from .webhooks import router as webhooks_router
+from .api.blueprints_endpoints import router as blueprints_router
+from .api.app_factory_endpoints import router as app_factory_router
+from .api.preview_endpoints import router as preview_router
+from .api.alerts_endpoints import router as alerts_router
+from .api.budget_endpoints import router as budget_router
+from .api.scheduler_endpoints import router as scheduler_router
+from .api.partners_endpoints import router as partners_router
+from .api.postmortem_endpoints import router as postmortem_router
+from .blueprints.registry import registry as _bp_registry
 from .integrations.github import ensure_and_update_for_branch_event
 from .integrations.github import approve_pr_for_run, refresh_dor_status_for_run, statuses_for_run, merge_pr_for_run, set_status_for_run
+from .security import audit_event
 
-app = FastAPI(title="AI C-suite Orchestrator (Phase 8)")
+app = FastAPI(title="AI C-suite Orchestrator (Phase 17)")
 
 # --- Startup: ensure tables exist (tolerant if DB not ready yet) ---
 @app.on_event("startup")
@@ -42,8 +52,18 @@ def on_startup():
                 _t.sleep(1)
             except Exception:
                 break
+    # Validate and cache blueprint manifests (fail fast on invalid)
+    _bp_registry().load()
 
 app.include_router(webhooks_router)
+app.include_router(blueprints_router)
+app.include_router(app_factory_router)
+app.include_router(preview_router)
+app.include_router(alerts_router)
+app.include_router(budget_router)
+app.include_router(scheduler_router)
+app.include_router(partners_router)
+app.include_router(postmortem_router)
 
 # ---------- Health ----------
 @app.get("/healthz")
@@ -459,6 +479,10 @@ def github_pr_approve(run_id: str, db: Session = Depends(get_db)):
     res = approve_pr_for_run(db, run_id)
     if "error" in res or "skipped" in res:
         raise HTTPException(400, res.get("error") or res.get("skipped"))
+    try:
+        audit_event(db, actor="api", event_type="github.approve", run_id=run_id, request_id=f"{run_id}:gh:approve", details={"result": res})
+    except Exception:
+        pass
     # return updated status summary
     return statuses_for_run(db, run_id)
 
@@ -468,6 +492,10 @@ def github_pr_refresh(run_id: str, db: Session = Depends(get_db)):
     res = refresh_dor_status_for_run(db, run_id)
     if "error" in res or "skipped" in res:
         raise HTTPException(400, res.get("error") or res.get("skipped"))
+    try:
+        audit_event(db, actor="api", event_type="github.refresh_dor", run_id=run_id, request_id=f"{run_id}:gh:refresh", details={"result": res})
+    except Exception:
+        pass
     return statuses_for_run(db, run_id)
 
 @app.post("/integrations/github/pr/{run_id}/merge")
@@ -477,6 +505,10 @@ def github_pr_merge(run_id: str, method: str = Query("squash"), db: Session = De
         raise HTTPException(400, f"merge blocked: {res.get('reason')}")
     if "error" in res or "skipped" in res:
         raise HTTPException(400, res.get("error") or res.get("skipped"))
+    try:
+        audit_event(db, actor="api", event_type="github.merge", run_id=run_id, request_id=f"{run_id}:gh:merge", details={"method": method, "result": res})
+    except Exception:
+        pass
     return res
 
 @app.post("/integrations/github/pr/{run_id}/comment/refresh")
@@ -719,6 +751,10 @@ def ui_index():
     </head>
     <body>
       <h1>Founder Cockpit</h1>
+      <p><a href=\"/ui/blueprints\">Create from Blueprint</a></p>
+      <p><a id=\"navPostmortems\" href=\"/ui/postmortems\">Postmortems</a></p>
+      <p><a id=\"navScheduler\" href=\"/ui/scheduler\">Scheduler</a></p>
+      <p><a id=\"navIntegrations\" href=\"/ui/integrations\">Integrations</a></p>
       <div class=\"card\">
         <p>Enter a run id to view timeline, statuses, and approvals.</p>
         <div class=\"row\">
@@ -732,6 +768,203 @@ def ui_index():
           var v = document.getElementById('runId').value.trim();
           if (v) window.location.href = '/ui/run/' + encodeURIComponent(v);
         }});
+      </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+
+@app.get("/ui/integrations", response_class=HTMLResponse)
+def ui_integrations():
+    # Minimal deterministic UI for partner integrations
+    html = """
+    <!doctype html>
+    <html lang=\"en\">
+    <head>
+      <meta charset=\"utf-8\" />
+      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+      <title>Founder Cockpit · Integrations</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; color: #111; }
+        h1 { margin: 0 0 12px 0; }
+        table { border-collapse: collapse; width: 100%; max-width: 900px; }
+        th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+        .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+        .muted { color: #6b7280; font-size: 12px; }
+        button { padding: 8px 12px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #f3f4f6; }
+        input[type=text] { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+      </style>
+    </head>
+    <body>
+      <a href=\"/ui\" class=\"muted\">← Back</a>
+      <h1>Partners</h1>
+      <div class=\"row\">
+        <button id=\"refreshBtn\">Refresh</button>
+        <button id=\"tickBtn\">Tick</button>
+        <span id=\"msg\" class=\"muted\"></span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>partner_id</th><th>circuit_state</th><th>rate_remaining</th><th>calls</th><th>retries</th><th>failures</th><th>deduped</th></tr>
+        </thead>
+        <tbody id=\"tbody\"></tbody>
+      </table>
+      <div class=\"row\" style=\"margin-top:12px;\">
+        <label class=\"muted\">Call: partner_id</label>
+        <input id=\"pid\" type=\"text\" value=\"mock_echo\" />
+        <label class=\"muted\">op</label>
+        <input id=\"op\" type=\"text\" value=\"echo\" />
+        <label class=\"muted\">payload</label>
+        <input id=\"payload\" type=\"text\" value=\"{\\\"payload\\\":\\\"hi\\\"}\" />
+        <label class=\"muted\">idempotency_key</label>
+        <input id=\"ikey\" type=\"text\" />
+        <button id=\"callBtn\">Call</button>
+      </div>
+      <pre id=\"out\" class=\"muted\" style=\"white-space:pre-wrap;\"></pre>
+      <script>
+      (function() {
+        function setText(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
+        function render(list) {
+          var tb = document.getElementById('tbody');
+          tb.innerHTML='';
+          var items = Array.isArray(list) ? list.slice() : [];
+          // deterministic order guaranteed from API; iterate in order
+          items.forEach(function(it) {
+            var tr = document.createElement('tr');
+            var cols = [it.partner_id, it.state.circuit_state, String(it.state.rate_remaining), String(it.counters.calls), String(it.counters.retries), String(it.counters.failures), String(it.counters.deduped)];
+            cols.forEach(function(text){ var td = document.createElement('td'); td.textContent = text; tr.appendChild(td); });
+            tb.appendChild(tr);
+          });
+        }
+        function refresh() { fetch('/integrations/partners').then(r => r.json()).then(render).catch(function() { setText('msg','Load error'); }); }
+        document.getElementById('refreshBtn').addEventListener('click', refresh);
+        document.getElementById('tickBtn').addEventListener('click', function() {
+          setText('msg','Ticking…');
+          fetch('/integrations/partners/tick', { method: 'POST' }).then(r => r.json()).then(function() { setText('msg','Ticked'); refresh(); }).catch(function() { setText('msg','Tick failed'); });
+        });
+        document.getElementById('callBtn').addEventListener('click', function() {
+          var pid = document.getElementById('pid').value.trim();
+          var op = document.getElementById('op').value.trim();
+          var payloadText = document.getElementById('payload').value.trim();
+          var ikey = document.getElementById('ikey').value.trim();
+          var body = { op: op };
+          try { body.payload = payloadText ? JSON.parse(payloadText) : null; } catch(e) { body.payload = null; }
+          if (ikey) body.idempotency_key = ikey;
+          setText('msg','Calling…');
+          fetch('/integrations/partners/' + encodeURIComponent(pid) + '/call', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+            .then(function(r) { return r.json().then(function(j) { return { status: r.status, json: j }; }); })
+            .then(function(res) {
+              try { document.getElementById('out').textContent = JSON.stringify(res.json); } catch(e) { document.getElementById('out').textContent = String(res.json); }
+              setText('msg', res.status === 200 ? 'OK' : 'Error');
+              refresh();
+            }).catch(function() { setText('msg','Call failed'); });
+        });
+        refresh();
+      })();
+      </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+@app.get("/ui/blueprints", response_class=HTMLResponse)
+def ui_blueprints():
+    # Deterministic create-from-blueprint page; client fetches existing endpoints only
+    write_enabled = _github_write_enabled()
+    dry_banner = "" if write_enabled else "<div id=\"dry\" style=\"background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:8px 12px;border-radius:6px;margin:0 0 12px 0;\">Dry‑run: GitHub writes disabled (GITHUB_WRITE_ENABLED=0). Owner/Repo optional.</div>"
+    try:
+        items = _bp_registry().list()
+    except Exception:
+        items = []
+    ids = sorted([getattr(b, "id", str(b)) for b in items])
+    options_html = "".join([f"<option value=\"{bid}\">{bid}</option>" for bid in ids])
+    html = f"""
+    <!doctype html>
+    <html lang=\"en\">
+    <head>
+      <meta charset=\"utf-8\" />
+      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+      <title>Founder Cockpit · Create from Blueprint</title>
+      <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; color: #111; }}
+        h1 {{ margin: 0 0 12px 0; }}
+        .card {{ border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; max-width: 760px; }}
+        .row {{ display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }}
+        label {{ font-size: 12px; color: #374151; display:block; margin: 8px 0 4px 0; }}
+        select, input[type=text] {{ padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; min-width: 240px; }}
+        button {{ padding: 8px 12px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 6px; cursor: pointer; }}
+        button:hover {{ background: #f3f4f6; }}
+        button[disabled] {{ opacity: 0.5; cursor: not-allowed; }}
+        .muted {{ color: #6b7280; font-size: 12px; }}
+      </style>
+    </head>
+    <body>
+      <a href=\"/ui\" class=\"muted\">← Back</a>
+      <h1>Create from Blueprint</h1>
+      {dry_banner}
+      <div class=\"card\">
+        <div class=\"row\" style=\"margin-bottom:8px;\">
+          <div>
+            <label for=\"bpSelect\">Blueprint</label>
+            <select id=\"bpSelect\">{options_html}</select>
+          </div>
+          <div>
+            <label for=\"owner\">Target Owner</label>
+            <input id=\"owner\" type=\"text\" placeholder=\"org or user\" />
+          </div>
+          <div>
+            <label for=\"repo\">Target Repo Name</label>
+            <input id=\"repo\" type=\"text\" placeholder=\"repo\" />
+          </div>
+          <div>
+            <label for=\"branch\">Default Branch</label>
+            <input id=\"branch\" type=\"text\" value=\"main\" />
+          </div>
+        </div>
+        <div class=\"row\">
+          <button id=\"scaffoldBtn\">Scaffold</button>
+          <span id=\"msg\" class=\"muted\"></span>
+        </div>
+        <pre id=\"result\" class=\"muted\" style=\"white-space:pre-wrap;margin-top:8px;\"></pre>
+      </div>
+
+      <script>
+      (function() {{
+        var sel = document.getElementById('bpSelect');
+        var msg = document.getElementById('msg');
+        var out = document.getElementById('result');
+        function loadBlueprints() {{
+          fetch('/blueprints').then(r => r.json()).then(list => {{
+            if (!Array.isArray(list)) list = [];
+            list.sort(function(a,b) {{ return String(a.id).localeCompare(String(b.id)); }});
+            sel.innerHTML = '';
+            list.forEach(function(b) {{
+              var opt = document.createElement('option');
+              opt.value = b.id; opt.textContent = b.id; sel.appendChild(opt);
+            }});
+          }}).catch(function() {{ /* keep server-rendered options */ }});
+        }}
+        document.getElementById('scaffoldBtn').addEventListener('click', function() {{
+          var id = sel.value;
+          var owner = document.getElementById('owner').value.trim();
+          var repo = document.getElementById('repo').value.trim();
+          var branch = document.getElementById('branch').value.trim() || 'main';
+          msg.textContent = 'Submitting…'; out.textContent='';
+          fetch('/app-factory/scaffold', {{
+            method: 'POST',
+            headers: {{ 'content-type': 'application/json' }},
+            body: JSON.stringify({{
+              blueprint_id: id,
+              target: {{ mode: 'existing_repo', owner: owner || null, name: repo || null, default_branch: branch }}
+            }})
+          }}).then(r => r.json()).then(res => {{
+            try {{ out.textContent = JSON.stringify(res); }} catch(e) {{ out.textContent = String(res); }}
+            msg.textContent = (res && res.op_id) ? 'Done' : 'Completed';
+          }}).catch(function() {{ msg.textContent = 'Error'; }});
+        }});
+        loadBlueprints();
+      }})();
       </script>
     </body>
     </html>
@@ -778,12 +1011,14 @@ def ui_run(run_id: str, dry_run: bool | None = Query(default=None)):
         <div class=\"card\">
           <h3 style=\"margin:0 0 8px 0;\">Run Status</h3>
           <div id=\"runSummary\" class=\"muted\">Loading…</div>
-          <div class=\"row\" style=\"margin-top:8px;\">
-            <button id=\"refreshBtn\">Refresh</button>
-            <button id=\"approveBtn\"{approve_disabled}>Approve</button>
-            <button id=\"mergeBtn\"{merge_disabled}>Merge</button>
+          <div id="budget" class="muted" style="margin-top:6px;">Budget: Loading…</div>
+          <div class="row" style="margin-top:8px;">
+            <button id="refreshBtn">Refresh</button>
+            <button id="approveBtn"{approve_disabled}>Approve</button>
+            <button id="mergeBtn"{merge_disabled}>Merge</button>
+            <button id=\"computeBudgetBtn\">Compute Budget</button>
           </div>
-          <div id=\"actionMsg\" class=\"muted\" style=\"margin-top:8px;\"></div>
+          <div id="actionMsg" class="muted" style="margin-top:8px;"></div>
         </div>
 
         <div class=\"card\">
@@ -799,6 +1034,11 @@ def ui_run(run_id: str, dry_run: bool | None = Query(default=None)):
         <div class=\"card\" style=\"grid-column: span 2;\">
           <h3 style=\"margin:0 0 8px 0;\">Metrics</h3>
           <div id=\"metrics\" class=\"muted\">Loading…</div>
+        </div>
+
+        <div class=\"card\" style=\"grid-column: span 2;\">
+          <h3 style=\"margin:0 0 8px 0;\">Alerts</h3>
+          <div id=\"alerts\" class=\"muted\">Loading…</div>
         </div>
       </div>
 
@@ -834,6 +1074,23 @@ def ui_run(run_id: str, dry_run: bool | None = Query(default=None)):
           fetch('/runs/' + runId + '/metrics').then(r => r.json()).then(m => {{
             try {{ setText('metrics', JSON.stringify(m)); }} catch(e) {{ setText('metrics', 'n/a'); }}
           }}).catch(() => setText('metrics', 'n/a'));
+
+          fetch('/integrations/budget/' + runId).then(r => r.json()).then(b => {{
+            var pct = Math.round((b.totals && b.totals.pct_used ? b.totals.pct_used*100 : 0));
+            var limit = (b.totals && b.totals.budget_cents ? ('$' + (b.totals.budget_cents/100).toFixed(2)) : 'n/a');
+            setText('budget', 'Budget: ' + pct + '% of ' + limit + ' · Status: ' + b.status);
+          }}).catch(() => setText('budget', 'Budget: n/a'));
+
+          fetch('/integrations/alerts/' + runId).then(r => r.json()).then(a => {{
+            var parts = [];
+            parts.push('Status: ' + a.status);
+            if (Array.isArray(a.alerts) && a.alerts.length > 0) {{
+              parts.push('Active: ' + a.alerts.map(function(x) {{ return x.type + (x.key ? '(' + x.key + ')' : ''); }}).join(', '));
+            }} else {{
+              parts.push('Active: none');
+            }}
+            setText('alerts', parts.join(' · '));
+          }}).catch(() => setText('alerts', 'n/a'));
         }}
 
         document.getElementById('refreshBtn').addEventListener('click', refresh);
@@ -852,9 +1109,225 @@ def ui_run(run_id: str, dry_run: bool | None = Query(default=None)):
             .catch(() => {{ msg.textContent = 'Merge failed'; }});
         }});
 
+        document.getElementById('computeBudgetBtn').addEventListener('click', function() {{
+          msg.textContent = 'Computing budget…';
+          fetch('/integrations/budget/' + runId + '/compute', {{
+            method: 'POST',
+            headers: {{ 'content-type': 'application/json' }},
+            body: JSON.stringify({{ warn_pct: 0.8, block_pct: 1.0, rate: {{ usd_per_1k_tokens: 0.01 }} }})
+          }})
+            .then(r => r.json()).then(() => {{ msg.textContent = 'Budget computed'; refresh(); }})
+            .catch(() => {{ msg.textContent = 'Budget compute failed'; }});
+        }});
+
         // Initial load
         refresh();
       }})();
+      </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+
+@app.get("/ui/scheduler", response_class=HTMLResponse)
+def ui_scheduler():
+    # Minimal deterministic UI for scheduler
+    html = """
+    <!doctype html>
+    <html lang=\"en\">
+    <head>
+      <meta charset=\"utf-8\" />
+      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+      <title>Founder Cockpit · Scheduler</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; color: #111; }
+        h1 { margin: 0 0 12px 0; }
+        table { border-collapse: collapse; width: 100%; max-width: 900px; }
+        th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+        .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+        .muted { color: #6b7280; font-size: 12px; }
+        button { padding: 8px 12px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #f3f4f6; }
+        button[disabled] { opacity: 0.5; cursor: not-allowed; }
+        .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; max-width: 960px; }
+      </style>
+    </head>
+    <body>
+      <a href=\"/ui\" class=\"muted\">← Back</a>
+      <h1>Scheduler</h1>
+      <div class=\"row\">
+        <button id=\"refreshBtn\">Refresh</button>
+        <button id=\"stepBtn\">Step</button>
+        <span id=\"msg\" class=\"muted\"></span>
+      </div>
+      <div class=\"card\">
+        <h3 style=\"margin:0 0 8px 0;\">Policy</h3>
+        <div id=\"policy\" class=\"muted\">Loading…</div>
+      </div>
+      <div class=\"card\" style=\"margin-top:12px;\">
+        <h3 style=\"margin:0 0 8px 0;\">Stats</h3>
+        <div id=\"stats\" class=\"muted\">Loading…</div>
+      </div>
+      <div class=\"card\" style=\"margin-top:12px;\">
+        <h3 style=\"margin:0 0 8px 0;\">Queue</h3>
+        <div id=\"counts\" class=\"muted\">Loading…</div>
+        <table id=\"queue\">
+          <thead>
+            <tr><th>Index</th><th>Run ID</th><th>Tenant</th><th>Priority</th><th>State</th></tr>
+          </thead>
+          <tbody id=\"tbody\"></tbody>
+        </table>
+      </div>
+      <script>
+      (function() {
+        function setText(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
+        function loadPolicy() {
+          fetch('/scheduler/policy').then(r => r.json()).then(p => {
+            setText('policy', 'enabled=' + p.enabled + ' · global_concurrency=' + p.global_concurrency + ' · tenant_max_active=' + p.tenant_max_active + ' · queue_max=' + p.queue_max);
+          }).catch(() => setText('policy', 'n/a'));
+        }
+        function loadStats() {
+          fetch('/scheduler/stats').then(r => r.json()).then(s => {
+            setText('stats', 'leases=' + (s.leases||0) + ' · skipped_due_to_quota=' + (s.skipped_due_to_quota||0) + ' · completed=' + (s.completed||0));
+          }).catch(() => setText('stats', 'n/a'));
+        }
+        function loadQueue() {
+          fetch('/scheduler/queue').then(r => r.json()).then(q => {
+            setText('counts', 'queued=' + q.queued + ' · active=' + q.active + ' · completed=' + q.completed);
+            var tb = document.getElementById('tbody');
+            tb.innerHTML = '';
+            var items = Array.isArray(q.items) ? q.items.slice() : [];
+            // stable sort already from API; re-affirm deterministic order
+            items.forEach(function(it, idx) {
+              var tr = document.createElement('tr');
+              var tds = [String(idx), String(it.run_id), String(it.tenant_id), String(it.priority), String(it.state)];
+              tds.forEach(function(text){ var td = document.createElement('td'); td.textContent = text; tr.appendChild(td); });
+              tb.appendChild(tr);
+            });
+            var stepBtn = document.getElementById('stepBtn');
+            stepBtn.disabled = (items.length === 0);
+          }).catch(() => setText('counts', 'n/a'));
+        }
+        function refreshAll() { loadPolicy(); loadStats(); loadQueue(); }
+        document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+        document.getElementById('stepBtn').addEventListener('click', function() {
+          var msg = document.getElementById('msg');
+          msg.textContent = 'Stepping…';
+          fetch('/scheduler/step', { method: 'POST' }).then(r => r.json()).then(res => {
+            msg.textContent = res.leased ? ('Leased ' + res.leased) : (res.status || 'done');
+            refreshAll();
+          }).catch(() => { msg.textContent = 'Step failed'; });
+        });
+        refreshAll();
+      })();
+      </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+# --------- Phase 30: Postmortems Cockpit ---------
+@app.get("/ui/postmortems", response_class=HTMLResponse)
+def ui_postmortems():
+    html = """
+    <!doctype html>
+    <html lang=\"en\">
+    <head>
+      <meta charset=\"utf-8\" />
+      <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+      <title>Founder Cockpit · Postmortems</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 24px; color: #111; }
+        h1 { margin: 0 0 12px 0; }
+        table { border-collapse: collapse; width: 100%; max-width: 960px; }
+        th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+        .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+        .muted { color: #6b7280; font-size: 12px; }
+        button { padding: 8px 12px; border: 1px solid #d1d5db; background: #f9fafb; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #f3f4f6; }
+        input[type=text] { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+      </style>
+    </head>
+    <body>
+      <a href=\"/ui\" class=\"muted\">← Back</a>
+      <h1>Postmortems</h1>
+      <div class=\"row\">
+        <button id=\"refreshBtn\">Refresh</button>
+        <label class=\"muted\">Generate: run_id</label>
+        <input id=\"genRun\" type=\"text\" />
+        <button id=\"genBtn\">Generate</button>
+        <label class=\"muted\">Ingest to KB: run_id</label>
+        <input id=\"kbRun\" type=\"text\" />
+        <button id=\"kbBtn\">Ingest</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>run_id</th>
+            <th>status</th>
+            <th>failed_step</th>
+            <th>retries</th>
+            <th>alerts_count</th>
+            <th>budget_status</th>
+            <th>tags</th>
+          </tr>
+        </thead>
+        <tbody id=\"tbody\"></tbody>
+      </table>
+      <script>
+      (function() {
+        function render(list) {
+          var tb = document.getElementById('tbody');
+          tb.innerHTML='';
+          var items = Array.isArray(list) ? list.slice() : [];
+          items.forEach(function(it) {
+            var tr = document.createElement('tr');
+            var cols = [it.run_id, it.status, (it.failed_step||'-'), String(it.retries||0), String(it.alerts_count||0), (it.budget_status||'n/a'), (Array.isArray(it.tags)?it.tags.join(','):'')];
+            cols.forEach(function(text){ var td = document.createElement('td'); td.textContent = text; tr.appendChild(td); });
+            tb.appendChild(tr);
+          });
+        }
+        function load() {
+          // Fetch search results; then hydrate rows with full artifact
+          fetch('/postmortems/search?q=').then(r=>r.json()).then(function(results){
+            // Base rows with minimal fields
+            var out = results.map(function(r){ return { run_id: r.run_id, status: r.status, failed_step: '-', retries: 0, alerts_count: 0, budget_status: 'n/a', tags: r.tags }; });
+            var pending = out.length;
+            if (pending === 0) { render(out); return; }
+            out.forEach(function(row, idx){
+              fetch('/postmortems/' + encodeURIComponent(row.run_id))
+                .then(function(resp){ return resp.ok ? resp.json() : null; })
+                .then(function(art){
+                  if (art && art.meta) {
+                    out[idx].status = art.meta.status || row.status;
+                    out[idx].retries = art.meta.retries || 0;
+                    out[idx].failed_step = art.meta.failed_step || '-';
+                    var ac = (((art.alerts||{}).counts||{}).total)||0;
+                    out[idx].alerts_count = ac;
+                    out[idx].budget_status = (art.budget||{}).status || 'n/a';
+                    out[idx].tags = art.tags||row.tags||[];
+                  }
+                }).catch(function(){ /* keep defaults */ })
+                .finally(function(){ pending -= 1; if (pending === 0) render(out); });
+            });
+          }).catch(function(){ render([]); });
+        }
+        document.getElementById('refreshBtn').addEventListener('click', load);
+        document.getElementById('genBtn').addEventListener('click', function(){
+          var v = document.getElementById('genRun').value.trim();
+          if (!v) return;
+          fetch('/postmortems/' + encodeURIComponent(v) + '/generate', { method: 'POST' })
+            .then(function(){ load(); }).catch(function(){});
+        });
+        document.getElementById('kbBtn').addEventListener('click', function(){
+          var v = document.getElementById('kbRun').value.trim();
+          if (!v) return;
+          fetch('/postmortems/' + encodeURIComponent(v) + '/ingest-kb', { method: 'POST' })
+            .then(function(){ load(); }).catch(function(){});
+        });
+        load();
+      })();
       </script>
     </body>
     </html>

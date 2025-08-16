@@ -61,6 +61,8 @@ def get_history(db: Session, run_id: str) -> List[Dict[str, Any]]:
                 "attempt": r.attempt,
                 "created_at": r.created_at,
                 "error": r.error,
+                # Phase 14: include per-attempt duration from logs (ms)
+                "duration_ms": int((r.logs_json or {}).get("duration_ms") or 0),
             }
         )
     return out

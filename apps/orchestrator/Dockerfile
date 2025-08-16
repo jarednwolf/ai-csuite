@@ -10,6 +10,7 @@ COPY apps/orchestrator/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY apps/orchestrator /app
+COPY blueprints /app/blueprints
 ENV PYTHONPATH=/app
 
 EXPOSE 8000

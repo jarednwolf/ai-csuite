@@ -1,0 +1,15 @@
+{
+  "id": "staging",
+  "modules": [
+    {
+      "ref": "core",
+      "scale": {
+        "api": 1,
+        "db": 1,
+        "worker": 1
+      }
+    }
+  ],
+  "target": "staging",
+  "version": "1"
+}

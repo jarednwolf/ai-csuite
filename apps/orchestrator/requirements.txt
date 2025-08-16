@@ -10,6 +10,9 @@ numpy==2.0.1
 temporalio==1.7.0
 
 # --- Phase 10: LangGraph engine ---
-langgraph>=0.2.0,<1.0
-langchain-core>=0.2.0,<1.0
-typing-extensions>=4.8.0
+langgraph==0.2.32
+langchain-core==0.2.32
+typing-extensions==4.12.2
+
+# --- Phase 13: local PDF parsing ---
+pypdf==4.2.0

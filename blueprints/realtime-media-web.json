@@ -1,0 +1,60 @@
+{
+  "capabilities": [
+    "metrics",
+    "queue",
+    "realtime",
+    "uploads"
+  ],
+  "deploy_targets": [
+    "preview",
+    "staging",
+    "prod"
+  ],
+  "description": "Web app for realtime media upload/stream with background processing queue and observability hooks.",
+  "id": "realtime-media-web",
+  "name": "Realtime Media (Web)",
+  "quality_gates": {
+    "a11y_min": 75,
+    "e2e_cov_min": 0.6,
+    "perf_budget_ms": 2200
+  },
+  "scaffold": [
+    {
+      "step": "init_repo_or_branch"
+    },
+    {
+      "step": "create_backend_service"
+    },
+    {
+      "step": "create_frontend_app"
+    },
+    {
+      "step": "db_migrations_and_seed"
+    },
+    {
+      "step": "wire_ci_cd_and_iac"
+    },
+    {
+      "step": "add_e2e_tests"
+    },
+    {
+      "step": "open_pr_and_request_gates"
+    }
+  ],
+  "stack": {
+    "backend": {
+      "db": "postgres",
+      "framework": "fastapi",
+      "runtime": "python3.12"
+    },
+    "frontend": {
+      "framework": "react"
+    },
+    "infra": {
+      "containers": true,
+      "iac": "terraform",
+      "preview_envs": true
+    }
+  },
+  "version": "1.0.0"
+}

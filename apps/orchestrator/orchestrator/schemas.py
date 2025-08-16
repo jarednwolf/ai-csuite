@@ -677,3 +677,5 @@ class PRRead(BaseModel):
     state: str
     created_at: datetime
 
+# Phase 20: Alerts schemas are not required—endpoints return dicts built in service
+

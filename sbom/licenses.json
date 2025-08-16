@@ -1,0 +1,14 @@
+{
+  "allowlist": [
+    "MIT",
+    "BSD-3-Clause",
+    "BSD-2-Clause",
+    "Apache-2.0",
+    "ISC",
+    "PSF",
+    "MPL-2.0",
+    "LGPL-3.0-or-later",
+    "LGPL-2.1-or-later"
+  ],
+  "packages": []
+}

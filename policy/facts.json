@@ -1,0 +1,20 @@
+{
+  "budget": {
+    "pct_used": 0.2,
+    "status": "ok"
+  },
+  "dor": {
+    "missing": [],
+    "ready": true
+  },
+  "licenses": {
+    "violations": [],
+    "violations_count": 0
+  },
+  "statuses": {
+    "ok_contexts": [
+      "ai-csuite/dor",
+      "ai-csuite/human-approval"
+    ]
+  }
+}

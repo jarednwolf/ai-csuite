@@ -1,0 +1,60 @@
+{
+  "capabilities": [
+    "auth",
+    "crud",
+    "metrics",
+    "offline_sync"
+  ],
+  "deploy_targets": [
+    "preview",
+    "staging",
+    "prod"
+  ],
+  "description": "Cross-platform CRUD app using Expo (React Native) with Supabase backend (auth, sync, metrics).",
+  "id": "mobile-crud-expo-supabase",
+  "name": "Mobile CRUD (Expo + Supabase)",
+  "quality_gates": {
+    "a11y_min": 85,
+    "e2e_cov_min": 0.6,
+    "perf_budget_ms": 2000
+  },
+  "scaffold": [
+    {
+      "step": "init_repo_or_branch"
+    },
+    {
+      "step": "create_backend_service"
+    },
+    {
+      "step": "create_frontend_app"
+    },
+    {
+      "step": "db_migrations_and_seed"
+    },
+    {
+      "step": "wire_ci_cd_and_iac"
+    },
+    {
+      "step": "add_e2e_tests"
+    },
+    {
+      "step": "open_pr_and_request_gates"
+    }
+  ],
+  "stack": {
+    "backend": {
+      "db": "postgres",
+      "framework": "supabase",
+      "runtime": "node18"
+    },
+    "frontend": {
+      "framework": "expo"
+    },
+    "infra": {
+      "containers": true,
+      "iac": "terraform",
+      "preview_envs": true
+    }
+  },
+  "version": "1.0.0"
+}

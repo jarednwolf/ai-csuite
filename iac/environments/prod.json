@@ -1,0 +1,15 @@
+{
+  "id": "prod",
+  "modules": [
+    {
+      "ref": "core",
+      "scale": {
+        "api": 3,
+        "db": 1,
+        "worker": 2
+      }
+    }
+  ],
+  "target": "prod",
+  "version": "1"
+}
