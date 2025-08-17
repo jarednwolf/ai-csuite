@@ -174,3 +174,285 @@ class SchedulerItem(Base):
         Index("ix_sched_priority", "priority"),
         Index("ix_sched_tenant_state", "tenant_id", "state"),
     )
+
+
+# --- Phase 31–33: Provider state and reports ---
+class ProviderState(Base):
+    __tablename__ = "provider_state"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    capability: Mapped[str] = mapped_column(Text)
+    active_adapter: Mapped[str] = mapped_column(Text)
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ProviderConformanceReport(Base):
+    __tablename__ = "provider_conformance_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    capability: Mapped[str] = mapped_column(Text)
+    adapter: Mapped[str] = mapped_column(Text)
+    report: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class ProviderScaffold(Base):
+    __tablename__ = "provider_scaffolds"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    capability: Mapped[str] = mapped_column(Text)
+    vendor: Mapped[str] = mapped_column(Text)
+    adapter_path: Mapped[str] = mapped_column(Text)
+    unit_test_path: Mapped[str] = mapped_column(Text)
+    config_path: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ProviderShadowDiff(Base):
+    __tablename__ = "provider_shadow_diffs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    shadow_id: Mapped[str] = mapped_column(String(36))
+    capability: Mapped[str] = mapped_column(Text)
+    candidate: Mapped[str] = mapped_column(Text)
+    diff: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# --- Phase 34–39: Data/Experiments/Marketing Loop (append-only stores) ---
+class CDPEvent(Base):
+    __tablename__ = "cdp_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), default="tenant")
+    project_id: Mapped[str] = mapped_column(String(36), default="project")
+    run_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    user_id: Mapped[str] = mapped_column(String(64))
+    event_type: Mapped[str] = mapped_column(String(16))  # track|identify|alias|group
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_cdp_events_user", "user_id"),
+        Index("ix_cdp_events_type", "event_type"),
+    )
+
+
+class AudienceSyncJob(Base):
+    __tablename__ = "audience_sync_jobs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    audience: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="queued")  # queued|completed|failed
+    result: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ExperimentState(Base):
+    __tablename__ = "experiments_state"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    experiment_id: Mapped[str] = mapped_column(String(64), index=True)
+    plan: Mapped[dict] = mapped_column(JSON, default=dict)
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class BIInsight(Base):
+    __tablename__ = "bi_insights"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    insights: Mapped[dict] = mapped_column(JSON, default=dict)
+    suggestions: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class LifecycleSend(Base):
+    __tablename__ = "lifecycle_sends"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    channel: Mapped[str] = mapped_column(String(16))  # email|push|inapp
+    recipient: Mapped[str] = mapped_column(String(256))
+    message: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="queued")  # queued|sent|blocked
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_lifecycle_recipient", "recipient"),
+    )
+
+
+class AdsCampaign(Base):
+    __tablename__ = "ads_campaigns"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(String(64), index=True)
+    plan: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active|paused|blocked
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AttributionReport(Base):
+    __tablename__ = "attribution_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# --- Phase 40: LLM Observability & Evals ---
+class LLMTrace(Base):
+    __tablename__ = "llm_traces"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    run_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    trace_id: Mapped[str] = mapped_column(String(64))
+    meta: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class EvalReportDB(Base):
+    __tablename__ = "eval_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    bundle_id: Mapped[str] = mapped_column(String(64), default="default")
+    report: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# --- Phase 41: VectorStore indexes & Memory Policy ---
+class VectorStoreIndex(Base):
+    __tablename__ = "vectorstore_indexes"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    adapter: Mapped[str] = mapped_column(String(64))
+    index_name: Mapped[str] = mapped_column(String(64))
+    stats: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# --- Phase 42: Safety & Autonomy ---
+class SafetyAudit(Base):
+    __tablename__ = "safety_audits"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    item_type: Mapped[str] = mapped_column(String(32))  # creative|spend
+    status: Mapped[str] = mapped_column(String(16))  # allowed|blocked|escalate
+    findings: Mapped[dict] = mapped_column(JSON, default=dict)
+    redacted_text: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AutonomySetting(Base):
+    __tablename__ = "autonomy_settings"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    channel: Mapped[str] = mapped_column(String(32))
+    campaign_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    level: Mapped[str] = mapped_column(String(16))  # manual|limited|full
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class BudgetCap(Base):
+    __tablename__ = "budget_caps"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    channel: Mapped[str] = mapped_column(String(32))
+    campaign_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    cap_cents: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# --- Phase 43–46: Planning, Billing, Enterprise ---
+class PlanningValueScore(Base):
+    __tablename__ = "planning_value_scores"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36))
+    project_id: Mapped[str] = mapped_column(String(36))
+    idea_id: Mapped[str] = mapped_column(String(64))  # roadmap_item_id or arbitrary idea key
+    score: Mapped[int] = mapped_column(Integer)  # basis points for determinism
+    rationale: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class BillingUsage(Base):
+    __tablename__ = "billing_usage"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True)
+    period: Mapped[str] = mapped_column(String(7), index=True)  # YYYY-MM
+    meters: Mapped[dict] = mapped_column(JSON, default=dict)  # tokens,runs,preview_minutes,storage_mb,api_calls
+    plan: Mapped[str] = mapped_column(String(16), default="community")  # community|hosted|enterprise
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "period", name="uq_billing_usage_tenant_period"),
+        Index("ix_billing_usage_tenant_period", "tenant_id", "period"),
+    )
+
+
+class BillingInvoice(Base):
+    __tablename__ = "billing_invoices"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True)
+    period: Mapped[str] = mapped_column(String(7))
+    amount_cents: Mapped[int] = mapped_column(Integer, default=0)
+    line_items: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="mock")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class EnterpriseRole(Base):
+    __tablename__ = "enterprise_roles"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True)
+    user_id: Mapped[str] = mapped_column(String(64), index=True)
+    role: Mapped[str] = mapped_column(String(32), default="viewer")
+    scopes: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "user_id", name="uq_enterprise_role_user"),
+    )
+
+
+class SSOConfig(Base):
+    __tablename__ = "sso_configs"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(36), index=True)
+    protocol: Mapped[str] = mapped_column(String(16))  # oidc|saml
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    ts: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    tenant_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    user_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    action: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+# --- Phase 47–52: Repo intelligence, quality, self-work (append-only stores) ---
+class RepoMap(Base):
+    __tablename__ = "repo_map"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    map: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class RepoHotspot(Base):
+    __tablename__ = "repo_hotspots"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    hotspots: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ContractCoverageReport(Base):
+    __tablename__ = "contracts_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class SpeculativeReport(Base):
+    __tablename__ = "spec_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    report: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AgentReview(Base):
+    __tablename__ = "reviews"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    review: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(64), default="ai-csuite/self-review")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+

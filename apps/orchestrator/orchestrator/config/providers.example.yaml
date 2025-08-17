@@ -1,0 +1,10 @@
+capabilities:
+  ads: mock_ads
+  lifecycle: mock_lifecycle
+  experiments: mock_experiments
+  cdp: mock_cdp
+  vectorstore: mock_vectorstore
+  llm_gateway: mock_llm_gateway
+  llm_observability: mock_llm_observability
+
+

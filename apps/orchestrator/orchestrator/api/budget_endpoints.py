@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..services.budget import BudgetService
 from ..security import audit_event
+from ..models import BudgetCap
+import uuid
 
 
 router = APIRouter()
@@ -103,5 +105,25 @@ def budget_reset(run_id: str, db: Session = Depends(get_db)):
     except Exception:
         pass
     return res
+
+
+class BudgetCapBody(BaseModel):
+    channel: str
+    campaign_id: Optional[str] = None
+    cap_cents: int = 0
+
+
+@router.post("/budget/cap/set")
+def budget_cap_set(body: BudgetCapBody, db: Session = Depends(get_db)):
+    if body.cap_cents < 0:
+        raise HTTPException(400, "cap_cents must be >= 0")
+    row = BudgetCap(id=str(uuid.uuid4()), channel=body.channel, campaign_id=body.campaign_id, cap_cents=int(body.cap_cents))
+    db.add(row)
+    db.commit()
+    try:
+        audit_event(db, actor="api", event_type="budget.cap.set", run_id=None, request_id=f"cap:{row.id}", details={"channel": body.channel, "campaign_id": body.campaign_id, "cap_cents": body.cap_cents})
+    except Exception:
+        pass
+    return {"status": "ok", "channel": body.channel, "cap_cents": body.cap_cents}
 
 

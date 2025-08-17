@@ -469,7 +469,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 31 — Provider Abstraction Layer (PAL) & Conformance Harness
-- [ ] **Goal:** Make every external tool swappable behind strict capability interfaces with golden conformance tests.
+- [x] **Goal:** Make every external tool swappable behind strict capability interfaces with golden conformance tests.
 - **Key Changes:**
   - Define `providers/` interfaces: `AdsProvider`, `LifecycleProvider`, `ExperimentsProvider`, `CDPProvider`, `VectorStore`, `LLMObservabilityProvider`, `LLMGateway`.
   - Create **Conformance Kit**: fixtures + golden tests each adapter must pass (idempotency, error semantics, retries, timeouts).
@@ -487,7 +487,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 32 — Shadow Mode, Dual-Write & Traffic Switch
-- [ ] **Goal:** Safely evaluate a new vendor in parallel and ramp via flags.
+- [x] **Goal:** Safely evaluate a new vendor in parallel and ramp via flags.
 - **Key Changes:**
   - Dual-write (current + candidate) with read-compare and metrics diff.
   - Traffic ramp controller (5%→25%→50%→100%) via `ExperimentsProvider`.
@@ -505,7 +505,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 33 — LLM Gateway & Policy Routing
-- [ ] **Goal:** Abstract model vendors and route by policy (cost/latency/eval/safety).
+- [x] **Goal:** Abstract model vendors and route by policy (cost/latency/eval/safety).
 - **Key Changes:**
   - Integrate a **gateway** (pluggable) behind `LLMGateway` interface.
   - Routing policy controlled by `models/policy.json` (weights, ceilings).
@@ -522,7 +522,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 34 — CDPProvider: Event/Identity Contracts & Profiles
-- [ ] **Goal:** Warehouse-native profiles + predictive features, tool-agnostic.
+- [x] **Goal:** Warehouse-native profiles + predictive features, tool-agnostic.
 - **Key Changes:**
   - `events.schema.json` + validators (`track/identify/alias/group`).
   - `CDPProvider` adapter (initial vendor of choice) with profile upsert, audience sync, traits/predictions fetch.
@@ -540,7 +540,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 35 — ExperimentsProvider with Bandits (MAB/Contextual)
-- [ ] **Goal:** Run bandits for creative & budget allocation; unify flags.
+- [x] **Goal:** Run bandits for creative & budget allocation; unify flags.
 - **Key Changes:**
   - `ExperimentsProvider` supports: flags, A/B, Autotune bandits, contextual bandits hook.
   - Stopping rules & MDE calculators in `experiments/policy.json`.
@@ -558,7 +558,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 36 — Metric Catalog & BI Agent v1 (AI-Analyst)
-- [ ] **Goal:** Tool-agnostic KPI semantics + automated insights → roadmap.
+- [x] **Goal:** Tool-agnostic KPI semantics + automated insights → roadmap.
 - **Key Changes:**
   - `MetricCatalog.json` (activation, 7-day retention, CAC, LTV, ROAS).
   - BI agent generates `InsightReport.json` + `RoadmapSuggestions.json`.
@@ -576,7 +576,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 37 — LifecycleProvider (Email/Push/In-App) + Compliance
-- [ ] **Goal:** AI-assisted lifecycle campaigns with consent & policy guardrails.
+- [x] **Goal:** AI-assisted lifecycle campaigns with consent & policy guardrails.
 - **Key Changes:**
   - `LifecycleProvider` adapter; consent/suppression enforcement.
   - Artifacts: `MarketingBrief.json`, `ChannelPlan.json`, `CreativeBatch.json`.
@@ -594,7 +594,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 38 — AdsProvider (AI Campaign Types) + Budget Governor
-- [ ] **Goal:** Use PMax/Adv+/Accelerate while your policy governs spend/safety.
+- [x] **Goal:** Use PMax/Adv+/Accelerate while your policy governs spend/safety.
 - **Key Changes:**
   - `AdsProvider` supports: campaign create/pause/report; AI campaign types first-class.
   - Budget governor: 80% warn, 100% block, CPA/ROAS safety stops, daily pacing.
@@ -611,7 +611,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 39 — Attribution v0 & Reverse-ETL Loop
-- [ ] **Goal:** Close the loop: UTMs → attribution → audience sync back to tools.
+- [x] **Goal:** Close the loop: UTMs → attribution → audience sync back to tools.
 - **Key Changes:**
   - `AttributionReport.json` (last-touch + sanity checks).
   - Reverse-ETL: `CDPProvider.syncAudience()` for “winners” → channels.
@@ -629,7 +629,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 40 — LLM Observability & Evals as Gates
-- [ ] **Goal:** Treat evals/trace metrics as merge/run gates (quality SLOs).
+- [x] **Goal:** Treat evals/trace metrics as merge/run gates (quality SLOs).
 - **Key Changes:**
   - `LLMObservabilityProvider` adapters; trace IDs persisted with runs.
   - Eval datasets per blueprint; quality thresholds in CI (`eval/report.json`).
@@ -646,7 +646,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 41 — VectorStore Abstraction & Memory Policy
-- [ ] **Goal:** Swap vector stores and enforce provenance/safety for RAG.
+- [x] **Goal:** Swap vector stores and enforce provenance/safety for RAG.
 - **Key Changes:**
   - `VectorStore` adapters (at least two vendors).
   - Memory policy: chunking, dedupe, provenance metadata, redaction.
@@ -663,7 +663,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 42 — Content Safety & Autonomy Controls (Creative + Spend)
-- [ ] **Goal:** Enforce brand/policy moderation; cap autonomy by risk tier.
+- [x] **Goal:** Enforce brand/policy moderation; cap autonomy by risk tier.
 - **Key Changes:**
   - Creative moderation pre-checks (policy lists, classifier, and regex).
   - Autonomy levels per channel + per campaign risk; escalation path to Founder.
@@ -680,7 +680,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 43 — ROI-Driven Planning (Growth ←→ Roadmap)
-- [ ] **Goal:** Use measured ROI to prioritize backlog autonomously.
+- [x] **Goal:** Use measured ROI to prioritize backlog autonomously.
 - **Key Changes:**
   - BI agent merges `AttributionReport` + `ExperimentReport` into a Value Score per idea; opens/updates roadmap items automatically.
   - Cockpit card: “Top 5 ROI opportunities”.
@@ -696,7 +696,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 44 — SaaS Control Plane & Billing
-- [ ] **Goal:** Monetize: usage metering, plans, and billing (founder-friendly).
+- [x] **Goal:** Monetize: usage metering, plans, and billing (founder-friendly).
 - **Key Changes:**
   - Usage meters per tenant (tokens, runs, previews, storage).
   - Plan enforcement (community/hosted/enterprise).
@@ -714,7 +714,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 45 — Enterprise Pack: SSO, RBAC, Audit Export
-- [ ] **Goal:** Enterprise readiness for pilots (security + control).
+- [x] **Goal:** Enterprise readiness for pilots (security + control).
 - **Key Changes:**
   - SSO (OIDC/SAML) integration; role-based access with fine-grained scopes.
   - Audit export (JSON + CSV) for all privileged actions.
@@ -732,7 +732,7 @@ Phase 18 — Preview Environments & Smoke Gate
 ---
 
 ## Phase 46 — Founder Cockpit 2.0 (Growth & Insights)
-- [ ] **Goal:** One pane for product + growth + finances, human-in-the-loop controls.
+- [x] **Goal:** One pane for product + growth + finances, human-in-the-loop controls.
 - **Key Changes:**
   - New tabs: Experiments, Campaigns, Audiences, ROI, Vendor Ramp.
   - One-click: Shadow start/stop, Ramp %, Kill-switch, Approve spend.
@@ -742,3 +742,135 @@ Phase 18 — Preview Environments & Smoke Gate
   - Founder can guide the AI org from idea → deployed → growing.
 - **Success Criteria:**
   - All actions available in UI; state reflects instantly and deterministically.
+
+---
+
+## Phase 47 — Repo Intelligence & Intent Graph
+- [x] **Goal:** Index repo structure and expose intent graph.
+- **Endpoints:** `GET /repo/map`, `GET /repo/ownership`, `GET /repo/hotspots`
+- **Tests:** `apps/orchestrator/tests/test_phase47_repo_map.py`
+- **Expected Outcomes:** Deterministic repo map/ownership/hotspots persisted and queryable.
+- **Success Criteria:** Stable outputs across runs; sorted keys; newline-terminated artifacts.
+
+---
+
+## Phase 48 — Contract Coverage & Gap Detector
+- [x] **Goal:** Compute coverage of contracts, docs, and tests.
+- **Endpoint:** `POST /quality/contracts/report` → `quality/contracts_report.json`
+- **Tests:** `apps/orchestrator/tests/test_phase48_contract_coverage.py`
+- **Expected Outcomes:** Machine-readable report with stable keys and scores.
+- **Success Criteria:** Deterministic outputs; no network calls.
+
+---
+
+## Phase 49 — Self‑PR (Docs & Checklists Only)
+- [x] **Goal:** Plan docs-only PRs with clear status context.
+- **Endpoint:** `POST /self/pr/docs`
+- **Tests:** `apps/orchestrator/tests/test_phase49_self_docs_pr.py`
+- **Expected Outcomes:** Deterministic plan output; no network side-effects.
+- **Success Criteria:** Status context `ai-csuite/self-docs` present.
+
+---
+
+## Phase 50 — Test Synthesis & Guard Scaffolding
+- [x] **Goal:** Suggest deterministic test skeletons.
+- **Endpoint:** `POST /self/tests/suggest`
+- **Tests:** `apps/orchestrator/tests/test_phase50_test_synthesis.py`
+- **Expected Outcomes:** Stable suggestions listing target and proposed test file paths.
+- **Success Criteria:** Sorted outputs, seeded RNG recorded.
+
+---
+
+## Phase 51 — Speculative Execution Sandbox
+- [x] **Goal:** Offline, deterministic speculative run report.
+- **Endpoint:** `POST /self/speculate` → `self/spec_report.json`
+- **Tests:** `apps/orchestrator/tests/test_phase51_speculative_exec.py`
+- **Expected Outcomes:** Stable risk/metrics report; DB + file persistence.
+- **Success Criteria:** Sorted keys; newline-terminated artifact.
+
+---
+
+## Phase 52 — Cross‑Agent Review + ADR Bot
+- [x] **Goal:** Deterministic agent review and ADR structure.
+- **Endpoint:** `POST /self/review` (status `ai-csuite/self-review`)
+- **Tests:** `apps/orchestrator/tests/test_phase52_agent_review_adr.py`
+- **Expected Outcomes:** ADR-like JSON with steelman/options/decision/owner.
+- **Success Criteria:** Persisted review; stable format.
+
+---
+
+## Phase 53 — Low‑Risk Code Autofixes (Policy Only)
+- [x] **Goal:** Document policy and status for future automation.
+- **Status:** `ai-csuite/self-lowrisk`
+- **Tests:** `apps/orchestrator/tests/test_phase53_lowrisk_automerge.py`
+- **Expected Outcomes:** Policy hooks defined for next phases.
+- **Success Criteria:** Checklist entries documented; no behavior change yet.
+
+---
+
+## Phase 54 — Provider Adapter Scaffolding via Conformance Kit
+- [x] Goal: Generate adapter skeletons from capability/vendor with conformance.
+- **Endpoint:** `POST /self/providers/scaffold`
+- **Artifacts:** `apps/orchestrator/orchestrator/providers/adapters/<vendor>.py`, `apps/orchestrator/orchestrator/reports/conformance/<capability>-<vendor>.json`, `providers/providers.yaml`
+- **Tests:** `apps/orchestrator/tests/test_phase54_adapter_scaffold.py`
+
+---
+
+## Phase 55 — Dependency & Supply‑Chain Upgrader
+- [x] Goal: Propose minor/patch bumps from offline catalog and persist proposal.
+- **Service:** `orchestrator/supply_chain/upgrader.py`
+- **Artifacts:** `apps/orchestrator/orchestrator/reports/supply_chain/proposal.json`, `sbom/*` reused.
+- **Tests:** `apps/orchestrator/tests/test_phase55_deps_supplychain.py`
+
+---
+
+## Phase 56 — Blueprint Library Auto‑Expansion
+- [x] Goal: Scaffold from blueprint manifests via self endpoint.
+- **Endpoint:** `POST /self/blueprints/scaffold`
+- **Service:** `orchestrator/blueprints/scaffold.py`
+- **Tests:** `apps/orchestrator/tests/test_phase56_blueprint_autogen.py`
+
+---
+
+## Phase 57 — Self Features: Flags + Canary + Auto‑Rollback
+- [x] Goal: Wrap self‑changes behind feature flags and ramp 5→25→50→100 with auto‑rollback on eval/safety/latency anomalies.
+- **Endpoints:** `POST /self/feature/register`, `POST /self/feature/canary`
+- **Artifacts:** `self/canary_report.json`, `self/policy.json`
+- **Tests:** `apps/orchestrator/tests/test_phase57_self_canary.py`
+
+---
+
+## Phase 58 — Self PR Eval/Regression Gates
+- [x] **Goal:** Treat eval/regression checks as hard gates for self‑PRs.
+- **Endpoint:** `POST /self/eval/gate` (reuses offline harness)
+- **Artifacts:** `self/eval_gate.json`
+- **Tests:** `apps/orchestrator/tests/test_phase58_self_eval_gates.py`
+- **Expected Outcomes:** `400` when score < threshold; pass with permissive thresholds; audit entry recorded.
+- **Success Criteria:** Offline/deterministic execution, seeded; no network calls; reports stable.
+
+---
+
+## Phase 59 — Cost/Performance Optimizer
+- [x] Goal: Propose caching/async/model routing; verify outputs unchanged; PR summary shows cost deltas.
+- Endpoints: `POST /self/optimize`
+- Service: `orchestrator/services/optimizer.py`
+- Artifacts: `self/optimizer_report.json`
+- Tests: `apps/orchestrator/tests/test_phase59_cost_perf_optimizer.py`
+
+---
+
+## Phase 60 — Self‑Healing (Auto‑Revert & Bisect)
+- [x] Goal: Use incident playbooks; write artifacts under `incidents/`.
+- Endpoints: `POST /incidents/revert`, `POST /incidents/bisect`
+- Service: `orchestrator/services/incidents.py`
+- Artifacts: `incidents/revert-*.json`, `incidents/bisect-*.json`
+- Tests: `apps/orchestrator/tests/test_phase60_self_healing.py`
+
+---
+
+## Phase 61 — Auto‑Vendor Swap Pipeline (Shadow→Ramp)
+- [x] Goal: Use PAL with Shadow→Ramp; ensure no SLO/ROAS regression; budget caps respected.
+- Endpoints: reuse `/providers/*` (`/providers/shadow/start`, `/providers/ramp/{stage}`); helper: `/providers/shadow/start/simple`, `/providers/shadow/compare-once`
+- Service: `orchestrator/services/vendor_swap.py`
+- Artifacts: `self/vendor_shadow_report.json`
+- Tests: `apps/orchestrator/tests/test_phase61_vendor_swap.py`

@@ -1,0 +1,1 @@
+{"culprit": "e4f5g6h", "incident_id": "cb8d95dd-5fba-4c45-9133-48a7d00927bd", "range": {"end": "e4f5g6h", "start": "a1b2c3d"}, "run_id": "9d7170a1-1b20-46b3-ac0f-41f5e76a43a6", "steps": [{"build": "ok", "eval_score": 1.0, "sha": "a1b2c3d", "smoke": "ok"}, {"build": "ok", "eval_score": 0.99, "sha": "e4f5g6h", "smoke": "ok"}], "type": "bisect"}

@@ -1,0 +1,1 @@
+{"path": "apps/orchestrator/orchestrator/reports/conformance/ads-acme_ads.json", "reports": [{"adapter": "acme_ads", "capability": "ads", "errors": [], "metrics": {"attempts": 1, "latency_ms": 1, "seed": 42}, "pass": true}], "summary": {"failed": 0, "passed": 1, "total": 1}}

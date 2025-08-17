@@ -21,3 +21,92 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- CREATE UNIQUE INDEX uq_graph_state_run_step_attempt ON graph_states(run_id, step_index, attempt);
 -- CREATE INDEX ix_graph_state_run ON graph_states(run_id);
 
+-- Phase 31–33 provider state (created via SQLAlchemy models; reference only)
+-- CREATE TABLE IF NOT EXISTS provider_state (
+--   id UUID PRIMARY KEY,
+--   capability TEXT NOT NULL,
+--   active_adapter TEXT NOT NULL,
+--   state JSONB NOT NULL DEFAULT '{}'::jsonb,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+--   updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+-- CREATE TABLE IF NOT EXISTS provider_conformance_reports (
+--   id UUID PRIMARY KEY,
+--   capability TEXT NOT NULL,
+--   adapter TEXT NOT NULL,
+--   report JSONB NOT NULL,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+-- CREATE TABLE IF NOT EXISTS provider_shadow_diffs (
+--   id UUID PRIMARY KEY,
+--   shadow_id UUID NOT NULL,
+--   capability TEXT NOT NULL,
+--   candidate TEXT NOT NULL,
+--   diff JSONB NOT NULL,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+
+-- Phase 34–39 (reference only; SQLAlchemy creates tables)
+-- CREATE TABLE IF NOT EXISTS cdp_events (
+--   id UUID PRIMARY KEY,
+--   tenant_id UUID,
+--   project_id UUID,
+--   run_id UUID,
+--   user_id TEXT NOT NULL,
+--   event_type TEXT NOT NULL,
+--   payload JSONB NOT NULL,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+-- CREATE INDEX ix_cdp_events_user ON cdp_events(user_id);
+-- CREATE INDEX ix_cdp_events_type ON cdp_events(event_type);
+--
+-- CREATE TABLE IF NOT EXISTS audience_sync_jobs (
+--   id UUID PRIMARY KEY,
+--   audience JSONB NOT NULL,
+--   status TEXT NOT NULL,
+--   result JSONB,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+--
+-- CREATE TABLE IF NOT EXISTS experiments_state (
+--   id UUID PRIMARY KEY,
+--   experiment_id TEXT NOT NULL,
+--   plan JSONB NOT NULL,
+--   state JSONB NOT NULL,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+-- CREATE INDEX ix_experiments_state_id ON experiments_state(experiment_id);
+--
+-- CREATE TABLE IF NOT EXISTS bi_insights (
+--   id UUID PRIMARY KEY,
+--   run_id UUID,
+--   insights JSONB NOT NULL,
+--   suggestions JSONB,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+--
+-- CREATE TABLE IF NOT EXISTS lifecycle_sends (
+--   id UUID PRIMARY KEY,
+--   channel TEXT NOT NULL,
+--   recipient TEXT NOT NULL,
+--   message JSONB NOT NULL,
+--   status TEXT NOT NULL,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+-- CREATE INDEX ix_lifecycle_recipient ON lifecycle_sends(recipient);
+--
+-- CREATE TABLE IF NOT EXISTS ads_campaigns (
+--   id UUID PRIMARY KEY,
+--   campaign_id TEXT NOT NULL,
+--   plan JSONB NOT NULL,
+--   status TEXT NOT NULL,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+-- CREATE INDEX ix_ads_campaigns_campaign_id ON ads_campaigns(campaign_id);
+--
+-- CREATE TABLE IF NOT EXISTS attribution_reports (
+--   id UUID PRIMARY KEY,
+--   report JSONB NOT NULL,
+--   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+-- );
+

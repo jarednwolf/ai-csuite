@@ -1,0 +1,6 @@
+{
+  "weights": {"cost": 0.25, "latency": 0.25, "quality": 0.25, "safety": 0.25},
+  "constraints": {}
+}
+
+

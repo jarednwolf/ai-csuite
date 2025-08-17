@@ -78,12 +78,12 @@
     {
       "name": "langchain-core",
       "summary": "Building applications with LLMs through composability",
-      "version": "0.3.74"
+      "version": "0.2.39"
     },
     {
       "name": "langgraph",
       "summary": "Building stateful, multi-actor applications with LLMs",
-      "version": "0.6.5"
+      "version": "0.2.32"
     },
     {
       "name": "langgraph-checkpoint",
@@ -91,19 +91,9 @@
       "version": "2.1.1"
     },
     {
-      "name": "langgraph-prebuilt",
-      "summary": "Library with high-level APIs for creating and executing LangGraph agents and tools.",
-      "version": "0.6.4"
-    },
-    {
-      "name": "langgraph-sdk",
-      "summary": "SDK for interacting with LangGraph API",
-      "version": "0.2.0"
-    },
-    {
       "name": "langsmith",
       "summary": "Client library to connect to the LangSmith LLM Tracing and Evaluation Platform.",
-      "version": "0.4.14"
+      "version": "0.1.147"
     },
     {
       "name": "numpy",
@@ -123,7 +113,7 @@
     {
       "name": "packaging",
       "summary": "Core utilities for Python packages",
-      "version": "25.0"
+      "version": "24.2"
     },
     {
       "name": "pip",
@@ -213,7 +203,7 @@
     {
       "name": "tenacity",
       "summary": "Retry code until it succeeds",
-      "version": "9.1.2"
+      "version": "8.5.0"
     },
     {
       "name": "types-protobuf",
@@ -222,8 +212,8 @@
     },
     {
       "name": "typing_extensions",
-      "summary": "Backported and Experimental Type Hints for Python 3.9+",
-      "version": "4.14.1"
+      "summary": "Backported and Experimental Type Hints for Python 3.8+",
+      "version": "4.12.2"
     },
     {
       "name": "urllib3",
@@ -249,16 +239,6 @@
       "name": "websockets",
       "summary": "An implementation of the WebSocket Protocol (RFC 6455 & 7692)",
       "version": "15.0.1"
-    },
-    {
-      "name": "xxhash",
-      "summary": "Python binding for xxHash",
-      "version": "3.5.0"
-    },
-    {
-      "name": "zstandard",
-      "summary": "Zstandard bindings for Python",
-      "version": "0.23.0"
     }
   ]
 }

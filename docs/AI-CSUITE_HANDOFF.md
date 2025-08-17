@@ -74,6 +74,10 @@ Phase 9: PR summary comment upsert (marker‑based), dry‑run support
 
 Phase 10: LangGraph pipeline + /runs/{id}/graph/start and /state endpoints
 Phase 11: Postgres‑persisted graph state, /graph/history, /graph/resume with pause semantics
+Phase 31–33: Provider Abstraction Layer (PAL), Conformance, Shadow & Ramp
+Phase 54: Provider Adapter Scaffold → Conformance report (`POST /self/providers/scaffold`)
+Phase 55: Supply‑Chain Upgrader (offline; proposal artifact)
+Phase 56: Blueprint Library Auto‑Expansion (`POST /self/blueprints/scaffold`)
 
 2) Environment & Tooling
 
@@ -683,13 +687,53 @@ Model spend per run/agent; budget alerts
     ```
 
 
-9) Definition of Ready (DoR) / Done (DoD)
+9) Phases 43–46 Overview
+
+Phase 43 — ROI‑Driven Planning
+- Endpoints: POST /planning/roi/score, POST /roadmap/suggest
+- Value Score merges Attribution + Experiments + cost into basis points; deterministic. Cockpit surfaces Top 5 ROI.
+
+Phase 44 — SaaS Control Plane & Billing
+- Endpoints: GET /billing/usage, POST /billing/plan/set, POST /billing/invoice/mock
+- Meters per tenant/month; quotas by plan; mock invoices.
+
+Phase 45 — Enterprise Pack
+- Endpoints: POST /auth/sso/config, GET /audit/export?fmt=json|csv
+- RBAC via X-Role header; SSO config validator; audit export of privileged actions.
+
+Phase 46 — Founder Cockpit 2.0
+- Endpoints under /cockpit: experiments, campaigns, audiences, roi; actions: kill-switch, ramp, approve-spend.
+- All offline/deterministic; responses stable and sorted.
+
+11) Phases 59–61 — Optimizer, Self‑Healing, Auto‑Vendor Swap
+
+Phase 59 — Cost/Performance Optimizer
+
+- Endpoint: `POST /self/optimize` → analyzes recent run history and produces a deterministic optimization report.
+- Output: `apps/orchestrator/orchestrator/self/optimizer_report.json` (sorted keys, newline‑terminated) including baseline cost, recommendations (caching/async/model routing) and a summary section suitable for PR.
+
+Phase 60 — Self‑Healing (Revert & Bisect)
+
+- Endpoints:
+  - `POST /incidents/revert` with `{run_id, reason}` → creates `incidents/revert-<id>.json` artifact.
+  - `POST /incidents/bisect` with `{run_id, start_sha, end_sha}` → creates `incidents/bisect-<id>.json` artifact.
+- Artifacts follow `docs/INCIDENT_PLAYBOOKS.md` guidelines; all outputs are deterministic with sorted keys and trailing newline.
+
+Phase 61 — Auto‑Vendor Swap (Shadow → Ramp)
+
+- Reuses PAL Shadow/Ramp with helper endpoints:
+  - `POST /providers/shadow/start/simple` `{capability, candidate}` → shadow id
+  - `POST /providers/shadow/compare-once` `{capability}` → deterministic diff summary
+  - `POST /providers/ramp/{stage}` `{capability, candidate}` → 5|25|50|100, promotes at 100
+- Report: `apps/orchestrator/orchestrator/self/vendor_shadow_report.json` captures mismatches and decision (proceed/hold).
+
+10) Definition of Ready (DoR) / Done (DoD)
 
 DoR: PRD (title, problem, stories), acceptance criteria, success metric, risk/mitigation, design heuristics pass, research summary.
 
 DoD: Tests green, artifacts committed, PR summary updated, statuses green, approved, merged, roadmap updated.
 
-10) Glossary
+11) Glossary
 
 Run: a single execution for a roadmap item (phase: discovery/delivery)
 

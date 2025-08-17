@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "kpis": {
+    "activation": {
+      "definition": "Users completing key onboarding action",
+      "window": "D7"
+    },
+    "retention_7d": {
+      "definition": "Users returning within 7 days",
+      "window": "D7"
+    },
+    "cac": {
+      "definition": "Customer acquisition cost",
+      "unit": "USD"
+    },
+    "ltv": {
+      "definition": "Lifetime value",
+      "unit": "USD"
+    },
+    "roas": {
+      "definition": "Return on ad spend",
+      "unit": "ratio"
+    }
+  }
+}
+
+
