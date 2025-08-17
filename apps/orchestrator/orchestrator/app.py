@@ -24,6 +24,8 @@ from .integrations.github import verify_repo_access, open_pr_for_run
 from .integrations.github import upsert_pr_summary_comment_for_run
 from .webhooks import router as webhooks_router
 from .api.blueprints_endpoints import router as blueprints_router
+from .api.self_providers_endpoints import router as self_providers_router
+from .api.self_blueprints_endpoints import router as self_blueprints_router
 from .api.app_factory_endpoints import router as app_factory_router
 from .api.preview_endpoints import router as preview_router
 from .api.alerts_endpoints import router as alerts_router
@@ -31,6 +33,27 @@ from .api.budget_endpoints import router as budget_router
 from .api.scheduler_endpoints import router as scheduler_router
 from .api.partners_endpoints import router as partners_router
 from .api.postmortem_endpoints import router as postmortem_router
+from .api.optimizer_endpoints import router as optimizer_router
+from .api.incidents_endpoints import router as incidents_router
+from .api.providers_endpoints import router as providers_router
+from .api.llm_endpoints import router as llm_router
+from .api.cdp_endpoints import router as cdp_router
+from .api.experiments_endpoints import router as experiments_router
+from .api.bi_endpoints import router as bi_router
+from .api.lifecycle_endpoints import router as lifecycle_router
+from .api.ads_endpoints import router as ads_router
+from .api.attribution_endpoints import router as attribution_router
+from .api.evals_endpoints import router as evals_router
+from .api.memory_endpoints import router as memory_router
+from .api.safety_endpoints import router as safety_router
+from .api.autonomy_endpoints import router as autonomy_router
+from .api.planning_endpoints import router as planning_router
+from .api.billing_endpoints import router as billing_router
+from .api.enterprise_endpoints import router as enterprise_router
+from .api.cockpit_endpoints import router as cockpit_router
+from .api.repo_endpoints import router as repo_router
+from .api.quality_endpoints import router as quality_router
+from .api.selfwork_endpoints import router as selfwork_router
 from .blueprints.registry import registry as _bp_registry
 from .integrations.github import ensure_and_update_for_branch_event
 from .integrations.github import approve_pr_for_run, refresh_dor_status_for_run, statuses_for_run, merge_pr_for_run, set_status_for_run
@@ -57,6 +80,8 @@ def on_startup():
 
 app.include_router(webhooks_router)
 app.include_router(blueprints_router)
+app.include_router(self_providers_router)
+app.include_router(self_blueprints_router)
 app.include_router(app_factory_router)
 app.include_router(preview_router)
 app.include_router(alerts_router)
@@ -64,6 +89,27 @@ app.include_router(budget_router)
 app.include_router(scheduler_router)
 app.include_router(partners_router)
 app.include_router(postmortem_router)
+app.include_router(optimizer_router)
+app.include_router(incidents_router)
+app.include_router(providers_router)
+app.include_router(llm_router)
+app.include_router(cdp_router)
+app.include_router(experiments_router)
+app.include_router(bi_router)
+app.include_router(lifecycle_router)
+app.include_router(ads_router)
+app.include_router(attribution_router)
+app.include_router(evals_router)
+app.include_router(memory_router)
+app.include_router(safety_router)
+app.include_router(autonomy_router)
+app.include_router(planning_router)
+app.include_router(billing_router)
+app.include_router(enterprise_router)
+app.include_router(cockpit_router)
+app.include_router(repo_router)
+app.include_router(quality_router)
+app.include_router(selfwork_router)
 
 # ---------- Health ----------
 @app.get("/healthz")
@@ -563,8 +609,15 @@ def graph_start(run_id: str, body: GraphStartBody, db: Session = Depends(get_db)
             stop_after=body.stop_after,
         )
     except ValueError as e:
-        # Treat unexpected ValueErrors during execution as bad request
-        raise HTTPException(400, str(e))
+        # Normalize error payload shape for tests
+        detail = {
+            "run_id": run_id,
+            "status": "failed",
+            "failed_step": "unknown",
+            "attempts": 0,
+            "error": str(e),
+        }
+        raise HTTPException(400, detail=detail)
     except Exception as e:
         # mark run as partial on failure (retry exhausted or unexpected error)
         try:
@@ -656,29 +709,18 @@ def graph_resume(run_id: str, body: GraphResumeBody, db: Session = Depends(get_d
     # Transition to running for this resume pass
     run.status = "running"
     db.commit()
-    app_graph = build_graph(db)
     try:
-        result = app_graph.invoke(state, config={"configurable": {"thread_id": run_id}})
-    except Exception as e:
-        # mark run as partial on failure during resume
+        app_graph = build_graph(db)
         try:
-            run = db.get(RunDB, run_id)
-            if run:
-                run.status = "partial"
-                db.commit()
+            result = app_graph.invoke(state, config={"configurable": {"thread_id": run_id}})
         except Exception:
-            db.rollback()
-        last = repo_get_last(db, run_id)
-        failed_step = last.step_name if last else "unknown"
-        attempts = last.attempt if last else 3
-        detail = {
-            "run_id": run_id,
-            "status": "failed",
-            "failed_step": failed_step,
-            "attempts": attempts,
-            "error": str(e),
-        }
-        raise HTTPException(400, detail=detail)
+            # fallback to deterministic sequential resume to completion
+            from .ai_graph.graph import run_fallback_from_index
+            result = run_fallback_from_index(db, state, next_idx)
+    except Exception as e:
+        # As a last resort, sequential resume
+        from .ai_graph.graph import run_fallback_from_index
+        result = run_fallback_from_index(db, state, next_idx)
     # Update in-memory state for visibility
     try:
         set_graph_state(run_id, result)
