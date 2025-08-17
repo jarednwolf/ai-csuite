@@ -1,0 +1,232 @@
+{
+    "precedence": "first_match",
+    "tiers": [
+      "low",
+      "medium",
+      "high",
+      "critical"
+    ],
+    "version": "1.0.0",
+    "patterns": [
+      {
+        "glob": "*.md",
+        "merge_policy": "auto",
+        "notes": "Docs only; enforce lint/link checks.",
+        "priority": 10,
+        "required_statuses": [
+          "ai-csuite/self-docs"
+        ],
+        "risk": "low"
+      },
+      {
+        "glob": "docs/**",
+        "merge_policy": "auto",
+        "notes": "Documentation changes.",
+        "priority": 10,
+        "required_statuses": [
+          "ai-csuite/self-docs"
+        ],
+        "risk": "low"
+      },
+      {
+        "glob": "apps/orchestrator/tests/**",
+        "merge_policy": "auto",
+        "notes": "Test additions and edits; runtime unchanged.",
+        "priority": 12,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-lowrisk"
+        ],
+        "risk": "low"
+      },
+      {
+        "glob": "apps/orchestrator/orchestrator/providers/adapters/mock_*.py",
+        "merge_policy": "auto",
+        "notes": "Mock adapters only.",
+        "priority": 12,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-lowrisk"
+        ],
+        "risk": "low"
+      },
+      {
+        "glob": "apps/orchestrator/orchestrator/api/**",
+        "merge_policy": "review",
+        "notes": "Public API routers; medium risk.",
+        "priority": 20,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review",
+          "ai-csuite/preview-smoke"
+        ],
+        "risk": "medium"
+      },
+      {
+        "glob": "apps/orchestrator/orchestrator/providers/adapters/**",
+        "merge_policy": "review",
+        "notes": "Real provider adapters (non-interface).",
+        "priority": 20,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review",
+          "ai-csuite/preview-smoke"
+        ],
+        "risk": "medium"
+      },
+      {
+        "glob": "blueprints/**",
+        "merge_policy": "review",
+        "notes": "Blueprint manifests and validators.",
+        "priority": 20,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review"
+        ],
+        "risk": "medium"
+      },
+      {
+        "glob": "apps/cockpit/**",
+        "merge_policy": "review",
+        "notes": "Founder UI; requires smoke.",
+        "priority": 22,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review",
+          "ai-csuite/preview-smoke"
+        ],
+        "risk": "medium"
+      },
+      {
+        "glob": "apps/orchestrator/orchestrator/evals/**",
+        "merge_policy": "review+owner",
+        "notes": "Eval datasets and thresholds; can gate merges.",
+        "priority": 30,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review",
+          "ai-csuite/evals"
+        ],
+        "risk": "high"
+      },
+      {
+        "glob": "apps/orchestrator/orchestrator/security/**",
+        "merge_policy": "review+owner",
+        "notes": "Security and guardrails.",
+        "priority": 30,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review"
+        ],
+        "risk": "high"
+      },
+      {
+        "glob": "apps/orchestrator/orchestrator/safety/**",
+        "merge_policy": "review+owner",
+        "notes": "Creative/content moderation and autonomy controls.",
+        "priority": 30,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review"
+        ],
+        "risk": "high"
+      },
+      {
+        "glob": "apps/orchestrator/orchestrator/ai_graph/**",
+        "merge_policy": "review+owner",
+        "notes": "Core orchestration and graph logic.",
+        "priority": 32,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review",
+          "ai-csuite/preview-smoke"
+        ],
+        "risk": "high"
+      },
+      {
+        "glob": "apps/orchestrator/orchestrator/providers/interfaces.py",
+        "merge_policy": "review+owner",
+        "notes": "Provider interface changes affect all adapters.",
+        "priority": 34,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review"
+        ],
+        "risk": "high"
+      },
+      {
+        "glob": ".github/workflows/**",
+        "merge_policy": "review+owner",
+        "notes": "CI/CD flows.",
+        "priority": 36,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review"
+        ],
+        "risk": "high"
+      },
+      {
+        "glob": "policy/**",
+        "merge_policy": "review+owner",
+        "notes": "Policy-as-code; merge gates.",
+        "priority": 36,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review"
+        ],
+        "risk": "high"
+      },
+      {
+        "glob": "compliance/**",
+        "merge_policy": "review+owner",
+        "notes": "Secrets/PII/PHI; compliance checks.",
+        "priority": 36,
+        "required_statuses": [
+          "tests",
+          "ai-csuite/self-review"
+        ],
+        "risk": "high"
+      },
+      {
+        "glob": "db/schema.sql",
+        "merge_policy": "manual-founders",
+        "notes": "Schema changes; data integrity.",
+        "priority": 40,
+        "required_statuses": [
+          "tests"
+        ],
+        "risk": "critical"
+      },
+      {
+        "glob": "migrations/**",
+        "merge_policy": "manual-founders",
+        "notes": "Database migrations.",
+        "priority": 40,
+        "required_statuses": [
+          "tests"
+        ],
+        "risk": "critical"
+      },
+      {
+        "glob": "iac/**",
+        "merge_policy": "manual-founders",
+        "notes": "Infrastructure as Code.",
+        "priority": 40,
+        "required_statuses": [
+          "tests"
+        ],
+        "risk": "critical"
+      },
+      {
+        "glob": "deployments/**",
+        "merge_policy": "manual-founders",
+        "notes": "Deployment scripts/config.",
+        "priority": 40,
+        "required_statuses": [
+          "tests"
+        ],
+        "risk": "critical"
+      }
+    ]
+  }
+  

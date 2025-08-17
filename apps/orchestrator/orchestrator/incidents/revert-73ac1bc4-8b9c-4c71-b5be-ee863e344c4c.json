@@ -1,0 +1,1 @@
+{"actions": ["revert_commit", "preview_smoke", "evals_run"], "incident_id": "73ac1bc4-8b9c-4c71-b5be-ee863e344c4c", "reason": "slo_breach", "result": {"evals": {"score": 1.0, "threshold": 0.9}, "preview_smoke": "success"}, "run_id": "9d7170a1-1b20-46b3-ac0f-41f5e76a43a6", "type": "revert"}

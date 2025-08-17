@@ -1,0 +1,7 @@
+{
+  "eval_threshold": 0.9,
+  "latency_p95_delta_max_ms": 50,
+  "stages": [5, 25, 50, 100]
+}
+
+

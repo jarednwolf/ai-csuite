@@ -30,8 +30,22 @@ def record_step(
         logs_json=logs_json,
         error=error,
     )
-    db.add(row)
-    db.commit()
+    try:
+        db.add(row)
+        db.commit()
+    except Exception:
+        # Best-effort ensure tables exist, then retry once (offline deterministic)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        try:
+            from ..db import Base, engine  # lazy import
+            Base.metadata.create_all(bind=engine)
+        except Exception:
+            pass
+        db.add(row)
+        db.commit()
 
 
 def get_last(db: Session, run_id: str) -> Optional[GraphState]:

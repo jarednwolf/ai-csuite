@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExperimentReport",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "winner": { "type": "string" },
+    "arms": { "type": "object", "additionalProperties": true },
+    "policy": { "type": "object", "additionalProperties": true }
+  },
+  "required": ["id", "winner"],
+  "additionalProperties": true
+}
+
+

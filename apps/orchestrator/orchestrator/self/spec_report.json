@@ -1,0 +1,22 @@
+{
+  "description": "try patch",
+  "metrics": {
+    "costs": {
+      "cpu_sec": 4,
+      "io_mb": 5
+    },
+    "evals": {
+      "score": 0.76
+    },
+    "risk": 0.5,
+    "tests": {
+      "failed": 1,
+      "passed": 9,
+      "total": 10
+    }
+  },
+  "seed": 124,
+  "started_ts": 1755403584,
+  "status": "warn",
+  "version": 1
+}
